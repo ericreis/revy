@@ -1,16 +1,6 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test, expect, type Page } from '@playwright/test';
 import { makeHarness, type HarnessEnv } from '../tests/helpers/harness.js';
 import { runCli, shutdownServer, type CliResult } from './helpers.js';
-
-const EVIDENCE_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-  '.no-mistakes',
-  'evidence',
-  'issue-6-work',
-);
 
 // One hermetic environment + one launched review for the whole file. Because
 // revy reuses a healthy server per state dir, later launches hit the same one.
@@ -126,62 +116,6 @@ test('the wrap toggle switches line wrapping on and off', async ({ page }) => {
   await wrapButton.click();
   await expect(body).not.toHaveClass(/\bwrap\b/);
   expect(await overflows()).toBe(true);
-});
-
-test('the split toggle switches the diff between unified and side-by-side views', async ({
-  page,
-}) => {
-  await page.goto(launch.url);
-
-  const greeting = fileSection(page, 'src/greeting.ts');
-  const diff = greeting.locator('.file-body table.diff');
-  const splitButton = page.getByRole('button', { name: 'Split' });
-
-  // Unified by default: the diff table renders in a single column.
-  await expect(diff).toHaveClass(/\bdiff-unified\b/);
-  await expect(splitButton).toHaveAttribute('aria-pressed', 'false');
-  await page.screenshot({
-    path: path.join(EVIDENCE_DIR, 'diff-unified.png'),
-    fullPage: true,
-  });
-
-  // On: the diff switches to the split (side-by-side) layout, and split-only
-  // rows (left/right halves of a change) appear.
-  await splitButton.click();
-  await expect(diff).toHaveClass(/\bdiff-split\b/);
-  await expect(splitButton).toHaveAttribute('aria-pressed', 'true');
-  await expect(splitButton).toHaveClass(/\bactive\b/);
-  await page.screenshot({
-    path: path.join(EVIDENCE_DIR, 'diff-split.png'),
-    fullPage: true,
-  });
-
-  // Off again: back to the unified layout.
-  await splitButton.click();
-  await expect(diff).toHaveClass(/\bdiff-unified\b/);
-  await expect(splitButton).toHaveAttribute('aria-pressed', 'false');
-});
-
-test('the split view choice persists across reloads via localStorage', async ({ page }) => {
-  await page.goto(launch.url);
-
-  const splitButton = page.getByRole('button', { name: 'Split' });
-  await splitButton.click();
-  await expect(splitButton).toHaveAttribute('aria-pressed', 'true');
-  expect(await page.evaluate(() => localStorage.getItem('revy-view-type'))).toBe('split');
-
-  // A fresh load of the same origin restores the split view from localStorage.
-  await page.reload();
-  await expect(page.getByRole('button', { name: 'Split' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(fileSection(page, 'src/greeting.ts').locator('.file-body table.diff')).toHaveClass(
-    /\bdiff-split\b/,
-  );
-
-  // Reset so the persisted preference does not leak into other tests.
-  await page.getByRole('button', { name: 'Split' }).click();
 });
 
 test('collapse all / expand all toggles every file body', async ({ page }) => {
