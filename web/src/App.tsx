@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import Review, { type Session } from './Review';
+import Review from './Review';
+import type { Session } from './types';
 
 type State =
   | { status: 'loading' }
