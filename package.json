@@ -15,6 +15,10 @@
     "build:web": "vite build",
     "build:server": "tsup",
     "typecheck": "tsc --noEmit",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "revy": "node dist/cli.js"
   },
   "dependencies": {
@@ -22,6 +26,7 @@
     "open": "^10.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
@@ -32,6 +37,7 @@
     "react-dom": "^18.3.1",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^4.1.10"
   }
 }
