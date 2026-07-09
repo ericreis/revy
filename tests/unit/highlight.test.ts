@@ -28,14 +28,19 @@ describe('languageForPath', () => {
   });
 
   it('recognizes well-known extensionless filenames', () => {
-    expect(languageForPath('Dockerfile')).toBe('docker');
+    // Resolved by refractor's own aliases (no map entry needed).
+    expect(languageForPath('Dockerfile')).toBeDefined();
     expect(languageForPath('build/Makefile')).toBe('makefile');
-    expect(languageForPath('.gitignore')).toBe('ignore');
+    expect(languageForPath('.gitignore')).toBeDefined();
+    // Genuine gaps refractor doesn't know - covered by FILENAME_LANGUAGE.
+    expect(languageForPath('GNUmakefile')).toBe('makefile');
+    expect(languageForPath('.dockerignore')).toBe('ignore');
   });
 
   it('is case-insensitive and uses the basename, not the directory', () => {
     expect(languageForPath('SRC/Lib.RS')).toBe('rust');
     expect(languageForPath('rs/src/thing.vue')).toBe('markup');
+    expect(languageForPath('build/GNUMAKEFILE')).toBe('makefile');
   });
 
   it('returns undefined for unknown or absent extensions', () => {

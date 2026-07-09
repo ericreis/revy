@@ -56,15 +56,15 @@ const EXTENSION_OVERRIDES: Record<string, string> = {
   patch: 'diff',
 };
 
-/** Filenames that imply a language regardless of (missing) extension. */
+/**
+ * Extensionless filenames refractor can't resolve on its own. Common ones
+ * (`Dockerfile`, `Makefile`, `.gitignore`, `.npmignore`) already match a
+ * refractor language name or alias and are handled by the fallback in
+ * `languageForPath`, so only the genuine gaps live here.
+ */
 const FILENAME_LANGUAGE: Record<string, string> = {
-  dockerfile: 'docker',
-  makefile: 'makefile',
   gnumakefile: 'makefile',
-  '.gitignore': 'ignore',
-  '.gitattributes': 'ignore',
-  '.dockerignore': 'ignore',
-  '.npmignore': 'ignore',
+  '.dockerignore': 'ignore', // gitignore-style syntax, same grammar
 };
 
 /**
