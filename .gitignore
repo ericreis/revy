@@ -4,5 +4,10 @@ web/dist/
 *.log
 .DS_Store
 
+# Test artifacts
+playwright-report/
+test-results/
+coverage/
+
 # Local Claude Code settings (machine-local; not shared)
 .claude/settings.local.json

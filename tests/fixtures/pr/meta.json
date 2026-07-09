@@ -1,0 +1,12 @@
+{
+  "number": 42,
+  "title": "Add a friendly greeting helper",
+  "author": { "login": "octocat" },
+  "headRefName": "feature/greeting",
+  "baseRefName": "main",
+  "headRefOid": "abc1234def5678abc1234def5678abc1234def56",
+  "url": "https://github.com/octocat/hello-world/pull/42",
+  "additions": 10,
+  "deletions": 4,
+  "changedFiles": 3
+}

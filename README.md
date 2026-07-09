@@ -70,6 +70,35 @@ Tracked as GitHub milestones:
 - **M3 · Review order** - AI-recommended review order.
 - **M4 · Agent-agnostic polish** - pluggable agent adapter, resolve/unresolve, rate-limit handling, docs.
 
+## Testing
+
+Testing is a first-class citizen, with **end-to-end tests as the primary focus** - they drive the
+real stack the way a user does, so they cover the whole flow rather than isolated pieces.
+
+```sh
+npm test              # unit + e2e
+npm run test:unit     # Vitest: pure logic + the express app + the gh integration
+npm run test:e2e      # Playwright: the full launch → render → interact flow
+npm run test:watch    # Vitest in watch mode
+```
+
+- **E2E (`e2e/`, Playwright):** runs the built `revy` CLI exactly as a user would
+  (`revy <pr> --no-open`), which spawns the detached loopback server, then drives a real Chromium
+  browser against the rendered review - asserting the header, file tree, diff bodies,
+  auto-collapse, collapse/expand, tree navigation, server reuse on relaunch, and error states.
+- **Hermetic, no network:** a fake `gh` (`tests/helpers/`) backed by fixtures in `tests/fixtures/pr/`
+  is put on `PATH`, and each run uses an isolated `REVY_STATE_DIR`, so tests never hit GitHub.
+- **Unit (`tests/unit/`, Vitest):** PR-arg parsing, the session store + key stability, diff parsing
+  and large/generated-file detection, the express routes, and `gh` error translation.
+
+The first time you run the E2E tests locally, install the browser once:
+
+```sh
+npx playwright install chromium
+```
+
+CI (`.github/workflows/ci.yml`) runs typecheck, unit, and e2e on every push and PR.
+
 ## Tech
 
 TypeScript (Node, ESM) · express · React + Vite · [`react-diff-view`](https://github.com/otakustay/react-diff-view) · the `gh` CLI for GitHub sync.
