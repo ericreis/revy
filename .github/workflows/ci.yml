@@ -17,12 +17,12 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # Skip Playwright's browser download here; a dedicated step below
-        # installs Chromium. Otherwise the postinstall re-downloads browsers
-        # on every fresh runner, which is slow and can hang npm ci.
-        run: npm ci --no-audit --no-fund
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        # --ignore-scripts skips dependency lifecycle scripts, which are not
+        # needed here (esbuild/rollup/rolldown ship prebuilt platform binaries,
+        # and Playwright browsers are installed by the dedicated step below).
+        # esbuild's postinstall in particular hangs npm ci on fresh runners.
+        # This is also the safer default against supply-chain postinstall abuse.
+        run: npm ci --no-audit --no-fund --ignore-scripts
 
       - name: Typecheck
         run: npm run typecheck
