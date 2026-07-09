@@ -2,70 +2,43 @@ import refractor from 'refractor';
 import { tokenize, type HunkData, type HunkTokens } from 'react-diff-view';
 
 /**
- * File extensions whose refractor/Prism language can't be resolved from the
- * extension alone. refractor already recognizes most extensions through its
- * language names and aliases (`ts`, `js`, `py`, `go`, `css`, `html`, `md`, ...),
- * so `languageForPath` only needs overrides for the exceptions:
- *   - extensions refractor doesn't know (`mjs`, `rs`, `cc`, `hpp`, `vue`, ...),
- *   - and remappings to a different grammar (`htm`/`svelte` -> `markup`).
- * Everything else falls through to refractor's own resolution, which keeps this
- * list small and automatically covers languages as refractor adds them.
- * Extensions are lowercase, without the leading dot.
+ * Teach refractor the file extensions (and a couple of extensionless names) it
+ * doesn't recognize out of the box, registering each as an alias of a grammar
+ * it already ships. refractor already knows most extensions through its own
+ * names and aliases (`ts`, `js`, `py`, `go`, `css`, `html`, `md`, ...); these
+ * are just the gaps, so `languageForPath` can then resolve everything with a
+ * single `refractor.registered` lookup. Keys are lowercase, without a dot.
  */
-const EXTENSION_OVERRIDES: Record<string, string> = {
-  mts: 'typescript',
-  cts: 'typescript',
-  mjs: 'javascript',
-  cjs: 'javascript',
-  jsonc: 'json',
-  pyi: 'python',
-  rs: 'rust',
-  h: 'c',
-  cc: 'cpp',
-  cxx: 'cpp',
-  hpp: 'cpp',
-  hh: 'cpp',
-  m: 'objectivec',
-  mm: 'objectivec',
-  fs: 'fsharp',
-  pl: 'perl',
-  pm: 'perl',
-  ex: 'elixir',
-  exs: 'elixir',
-  erl: 'erlang',
-  clj: 'clojure',
-  cljs: 'clojure',
-  ml: 'ocaml',
-  jl: 'julia',
-  sh: 'bash',
-  zsh: 'bash',
-  fish: 'bash',
-  ps1: 'powershell',
-  bat: 'batch',
-  styl: 'stylus',
-  htm: 'markup',
-  xhtml: 'markup',
-  vue: 'markup',
-  svelte: 'markup',
-  mdx: 'markdown',
-  cfg: 'ini',
-  gql: 'graphql',
-  proto: 'protobuf',
-  tf: 'hcl',
-  tfvars: 'hcl',
-  patch: 'diff',
-};
-
-/**
- * Extensionless filenames refractor can't resolve on its own. Common ones
- * (`Dockerfile`, `Makefile`, `.gitignore`, `.npmignore`) already match a
- * refractor language name or alias and are handled by the fallback in
- * `languageForPath`, so only the genuine gaps live here.
- */
-const FILENAME_LANGUAGE: Record<string, string> = {
-  gnumakefile: 'makefile',
-  '.dockerignore': 'ignore', // gitignore-style syntax, same grammar
-};
+refractor.alias({
+  typescript: ['mts', 'cts'],
+  javascript: ['mjs', 'cjs'],
+  json: ['jsonc'],
+  python: ['pyi'],
+  rust: ['rs'],
+  c: ['h'],
+  cpp: ['cc', 'cxx', 'hpp', 'hh'],
+  objectivec: ['m', 'mm'],
+  fsharp: ['fs'],
+  perl: ['pl', 'pm'],
+  elixir: ['ex', 'exs'],
+  erlang: ['erl'],
+  clojure: ['clj', 'cljs'],
+  ocaml: ['ml'],
+  julia: ['jl'],
+  bash: ['sh', 'zsh', 'fish'],
+  powershell: ['ps1'],
+  batch: ['bat'],
+  stylus: ['styl'],
+  markup: ['htm', 'xhtml', 'vue', 'svelte'],
+  markdown: ['mdx'],
+  ini: ['cfg'],
+  graphql: ['gql'],
+  protobuf: ['proto'],
+  hcl: ['tf', 'tfvars'],
+  diff: ['patch'],
+  makefile: ['gnumakefile'],
+  ignore: ['dockerignore'], // .dockerignore uses gitignore-style syntax
+});
 
 /**
  * Skip syntax highlighting once a file's diff is this many changed lines: the
@@ -77,14 +50,11 @@ export const MAX_HIGHLIGHT_LINES = 3000;
 /** The refractor/Prism language for a file path, if one is registered. */
 export function languageForPath(path: string): string | undefined {
   const filename = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
-
-  // An explicit override wins; otherwise let refractor resolve the extension
-  // (or the bare filename) through its own language names and aliases.
   const dot = filename.lastIndexOf('.');
+  // For dotfiles like `.gitignore` this yields `gitignore`, which refractor
+  // knows; for `Dockerfile`/`Makefile` the bare name is itself the language.
   const ext = dot >= 0 ? filename.slice(dot + 1) : filename;
-  const language = FILENAME_LANGUAGE[filename] ?? EXTENSION_OVERRIDES[ext] ?? ext;
-
-  return refractor.registered(language) ? language : undefined;
+  return refractor.registered(ext) ? ext : undefined;
 }
 
 /**

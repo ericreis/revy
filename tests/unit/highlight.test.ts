@@ -3,50 +3,37 @@ import { parseDiff } from 'react-diff-view';
 import { languageForPath, tokenizeHunks, MAX_HIGHLIGHT_LINES } from '../../web/src/highlight.js';
 
 describe('languageForPath', () => {
-  it('resolves common source extensions to a registered language', () => {
-    // These fall through to refractor's own name/alias resolution; we only
-    // require that each yields a language refractor can actually highlight.
-    for (const path of [
-      'src/greeting.ts',
-      'web/src/App.tsx',
-      'scripts/build.js',
-      'main.py',
-      'pkg/server.go',
-      'styles/app.scss',
-      'config.yaml',
-    ]) {
+  it('resolves the extensions and filenames revy cares about to a registered language', () => {
+    // languageForPath returns a value only when refractor has a grammar for it,
+    // so `toBeDefined` proves each path is highlightable - both the extensions
+    // refractor knows natively and the ones we teach it via refractor.alias().
+    const paths = [
+      // recognized by refractor directly
+      'src/greeting.ts', 'web/src/App.tsx', 'scripts/build.js', 'main.py',
+      'pkg/server.go', 'styles/app.scss', 'config.yaml', 'README.md',
+      // resolved via the aliases we register for refractor's gaps
+      'lib.rs', 'index.mjs', 'util.hpp', 'core.cc', 'app/Page.vue',
+      'infra/main.tf', 'schema.proto', 'lib.exs', 'plot.jl', 'run.zsh',
+      // extensionless names and dotfiles
+      'Dockerfile', 'build/Makefile', 'GNUmakefile', '.gitignore', '.dockerignore',
+    ];
+    for (const path of paths) {
       expect(languageForPath(path), path).toBeDefined();
     }
   });
 
-  it('applies overrides for extensions refractor does not know by itself', () => {
-    expect(languageForPath('lib.rs')).toBe('rust');
-    expect(languageForPath('index.mjs')).toBe('javascript');
-    expect(languageForPath('util.hpp')).toBe('cpp');
-    expect(languageForPath('app/Page.vue')).toBe('markup');
-    expect(languageForPath('infra/main.tf')).toBe('hcl');
-  });
-
-  it('recognizes well-known extensionless filenames', () => {
-    // Resolved by refractor's own aliases (no map entry needed).
-    expect(languageForPath('Dockerfile')).toBeDefined();
-    expect(languageForPath('build/Makefile')).toBe('makefile');
-    expect(languageForPath('.gitignore')).toBeDefined();
-    // Genuine gaps refractor doesn't know - covered by FILENAME_LANGUAGE.
-    expect(languageForPath('GNUmakefile')).toBe('makefile');
-    expect(languageForPath('.dockerignore')).toBe('ignore');
-  });
-
-  it('is case-insensitive and uses the basename, not the directory', () => {
-    expect(languageForPath('SRC/Lib.RS')).toBe('rust');
-    expect(languageForPath('rs/src/thing.vue')).toBe('markup');
-    expect(languageForPath('build/GNUMAKEFILE')).toBe('makefile');
+  it('is case-insensitive and resolves from the basename, not the directory', () => {
+    expect(languageForPath('SRC/Lib.RS')).toBe(languageForPath('lib.rs'));
+    expect(languageForPath('rs/dir/Page.VUE')).toBe(languageForPath('page.vue'));
+    expect(languageForPath('a/b/GNUMAKEFILE')).toBe(languageForPath('gnumakefile'));
   });
 
   it('returns undefined for unknown or absent extensions', () => {
     expect(languageForPath('data.unknownext')).toBeUndefined();
     expect(languageForPath('LICENSE')).toBeUndefined();
     expect(languageForPath('bin/tool')).toBeUndefined();
+    // .gitattributes is not gitignore syntax, so we intentionally leave it plain.
+    expect(languageForPath('.gitattributes')).toBeUndefined();
   });
 });
 
