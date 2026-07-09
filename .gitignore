@@ -1,0 +1,8 @@
+node_modules/
+dist/
+web/dist/
+*.log
+.DS_Store
+
+# Local Claude Code settings (machine-local; not shared)
+.claude/settings.local.json
