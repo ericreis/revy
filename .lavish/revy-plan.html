@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en" data-theme="luxury">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>revy - Implementation Plan</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/themes.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      :where(.grid, .flex) > * { min-width: 0; }
+      :where(p, h1, h2, h3, h4, h5, h6, li, dd, blockquote, figcaption, td, th, .badge, .label) { overflow-wrap: anywhere; }
+      :where(img, svg, video, canvas, iframe) { max-width: 100%; height: auto; }
+      .revy-diagram { background: var(--color-base-100); border-radius: 1rem; padding: 1rem; overflow-x: auto; }
+      .revy-diagram svg { max-width: 100%; height: auto; }
+      .revy-code { border-radius: 0.75rem; overflow-x: auto; border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent); font-size: 0.8rem; }
+      .chat-bubble { overflow-wrap: anywhere; }
+      .mermaid foreignObject div, .mermaid .nodeLabel, .mermaid .label { overflow-wrap: anywhere; overflow: visible; }
+      .stat { min-width: 0; }
+      .stat-value, .stat-title, .stat-desc { overflow-wrap: anywhere; white-space: normal; }
+      .revy-anchor { scroll-margin-top: 1rem; }
+      /* keep dense/monospace content from overflowing its parent by a few px */
+      .card, .card-body { min-width: 0; }
+      .mockup-code { overflow-x: auto; }
+      .mockup-code pre { white-space: pre; }
+      .stats { overflow-x: auto; }
+      .revy-code > * { max-width: 100%; }
+    </style>
+  </head>
+  <body class="bg-base-200 text-base-content">
+    <main class="mx-auto max-w-6xl p-5 lg:p-10 space-y-12">
+
+      <!-- ============================ HERO ============================ -->
+      <header class="space-y-5">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="badge badge-primary badge-lg font-semibold">revy</span>
+          <span class="badge badge-soft badge-info">Implementation plan</span>
+          <span class="badge badge-soft">Draft for review - annotate freely</span>
+        </div>
+        <h1 class="text-4xl lg:text-5xl font-bold leading-tight">
+          An agentic PR review tool, built as a local <span class="text-primary">AXI</span>
+        </h1>
+        <p class="text-lg opacity-80 max-w-3xl">
+          revy is a CLI that spins up a local browser review surface for a GitHub PR and turns the
+          coding agent that launched it into a live review partner: it recommends where to start,
+          answers questions anchored to selected code in persistent threads, and syncs your review
+          comments back to GitHub's native PR UI. The interaction model is copied from
+          <span class="font-semibold">lavish-axi</span> (server + long-poll conversation loop);
+          the diff surface and GitHub sync are the parts lavish does not have.
+        </p>
+        <div class="stats stats-vertical sm:stats-horizontal shadow bg-base-100">
+          <div class="stat">
+            <div class="stat-title">Decision locked</div>
+            <div class="stat-value text-primary text-2xl">Greenfield AXI</div>
+            <div class="stat-desc">not a difit fork</div>
+          </div>
+          <div class="stat">
+            <div class="stat-title">Model of the loop</div>
+            <div class="stat-value text-2xl">lavish-axi</div>
+            <div class="stat-desc">server + poll + agent-reply</div>
+          </div>
+          <div class="stat">
+            <div class="stat-title">Net-new value</div>
+            <div class="stat-value text-2xl">3 gaps</div>
+            <div class="stat-desc">sync · ordering · threads</div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ============================ GOAL / CONTEXT ============================ -->
+      <section class="space-y-5">
+        <h2 class="text-2xl font-bold">Why we're building this</h2>
+        <p class="opacity-80 max-w-3xl">
+          You review GitHub PRs and want AI woven into the loop: a better <em>starting order</em>, the
+          ability to <em>select code and ask questions</em> with the conversation kept in-tool, and comments
+          that <em>land in GitHub's native UI</em>. It should run locally, be spun up by a skill, and stay
+          model/agent-agnostic (Claude Code first). We surveyed ~25 tools; none does all of it.
+        </p>
+        <div class="grid gap-4 md:grid-cols-3">
+          <div class="card card-border bg-base-100">
+            <div class="card-body">
+              <h3 class="card-title text-base">Covered by existing tools</h3>
+              <ul class="text-sm space-y-1 opacity-80 list-disc pl-5">
+                <li>Local server + GitHub-style diff (difit)</li>
+                <li>Reads PR via <code>gh</code></li>
+                <li>Threaded local comments (difit)</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card card-border bg-base-100 border-warning/40">
+            <div class="card-body">
+              <h3 class="card-title text-base">The gaps = revy's reason to exist</h3>
+              <ul class="text-sm space-y-1 list-disc pl-5">
+                <li><span class="badge badge-soft badge-warning badge-sm">1</span> Comments sync to GitHub native UI</li>
+                <li><span class="badge badge-soft badge-warning badge-sm">2</span> AI-recommended review order</li>
+                <li><span class="badge badge-soft badge-warning badge-sm">3</span> Select code → agent → persistent threads</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card card-border bg-base-100">
+            <div class="card-body">
+              <h3 class="card-title text-base">Why not fork difit?</h3>
+              <p class="text-sm opacity-80">
+                difit is a monolithic app built for the opposite model - human reviews locally, then
+                <em>copies a prompt</em> to paste into an agent. revy needs a live agent-in-the-loop.
+                Retrofitting that fights difit's grain, so difit stays a <em>reference</em>, not a base.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ ARCHITECTURE ============================ -->
+      <section class="space-y-5">
+        <h2 class="text-2xl font-bold">Architecture at a glance</h2>
+        <p class="opacity-80 max-w-3xl">
+          One detached local server, keyed by PR identity. The human works in a browser diff UI; the
+          launching agent drives the conversation through a long-poll. Nothing embeds an LLM - the agent
+          <em>is</em> the brain (see the open question below).
+        </p>
+        <div class="revy-diagram">
+          <pre class="mermaid">
+flowchart TB
+    subgraph human["🧑 Reviewer"]
+      B["Browser diff UI<br/>(React + react-diff-view)<br/>select lines · comment · ask · read threads"]
+    end
+    subgraph agent["🤖 Coding agent (Claude Code first)"]
+      A["Launches revy · long-polls<br/>· answers in threads · ranks files"]
+    end
+    subgraph revy["revy - local AXI"]
+      CLI["CLI<br/>revy &lt;pr&gt; · poll · reply · order · submit"]
+      SRV["Detached loopback server (express)<br/>SSE to browser · long-poll to agent<br/>idle auto-shutdown"]
+      ST[("Session store<br/>one JSON file per PR<br/>~/.revy/sessions/&lt;pr&gt;.json")]
+    end
+    GH["GitHub<br/>PR diff · review threads · pending review"]
+
+    A -->|spawn / poll / reply| CLI
+    CLI --- SRV
+    SRV --- ST
+    B <-->|HTTP + SSE| SRV
+    SRV -->|gh CLI: pr diff / pr view| GH
+    SRV -->|gh api: batched pending review, replies, resolve| GH
+    A -.reads PR + repo, runs subagents.-> GH
+          </pre>
+        </div>
+        <div role="alert" class="alert alert-soft alert-info">
+          <span>
+            <strong>Key idea:</strong> swap lavish's "HTML-artifact-in-an-iframe" for a "PR diff surface,"
+            and swap "annotate an element" for "select code lines → comment (→ GitHub) or ask the agent
+            (→ thread)." The poll / agent-reply plumbing carries over almost verbatim.
+          </span>
+        </div>
+      </section>
+
+      <!-- ============================ CONVERSATION LOOP ============================ -->
+      <section class="space-y-5">
+        <h2 class="text-2xl font-bold">The review loop</h2>
+        <div class="revy-diagram">
+          <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant U as 🧑 Reviewer (browser)
+    participant R as revy server
+    participant A as 🤖 Agent
+
+    A->>R: revy owner/repo#1234 (fetch diff via gh, open UI)
+    A->>R: revy order (rank files + reasons)
+    R-->>U: show recommended review order
+    A->>R: revy poll  (long-poll, waits)
+    U->>R: select lines 40-45, ask "why swallow this error?"
+    R-->>A: poll returns {thread, anchor, question, code}
+    A->>A: inspect repo / spawn subagents
+    A->>R: revy reply --thread t_01 "retried upstream in X…"
+    R-->>U: answer appears in the thread (SSE)
+    U->>R: add review comment on line 12
+    A->>R: revy poll (continues)
+    U->>R: "submit my review"
+    A->>R: revy submit  → gh: one pending review, N comments
+    R-->>GH: batched review posted to GitHub native UI
+          </pre>
+        </div>
+      </section>
+
+      <!-- ============================ LIFECYCLE ============================ -->
+      <section class="space-y-5">
+        <h2 class="text-2xl font-bold">Lifecycle - concurrency, resume &amp; re-review</h2>
+        <p class="opacity-80 max-w-3xl">
+          Answers to two things you raised: yes, many threads run at once; and a review is never
+          "one-shot" - you relaunch on the same PR and pick up exactly where GitHub left off.
+        </p>
+        <div class="grid gap-4 md:grid-cols-3">
+          <div class="card card-border bg-base-100 border-primary/30">
+            <div class="card-body gap-2">
+              <h3 class="card-title text-base">Concurrent threads</h3>
+              <p class="text-sm opacity-80">
+                You open as many anchored threads as you like without waiting on the agent. Each poll
+                <em>drains the whole queue</em>, so the agent receives a batch and can answer them in
+                parallel via subagents, replying per <code>thread.id</code>. The UI shows each thread's
+                own state - <span class="badge badge-soft badge-xs">asked</span>
+                <span class="badge badge-soft badge-xs badge-warning">agent working</span>
+                <span class="badge badge-soft badge-xs badge-success">answered</span> - and new
+                questions keep queuing while the agent works.
+              </p>
+            </div>
+          </div>
+          <div class="card card-border bg-base-100 border-primary/30">
+            <div class="card-body gap-2">
+              <h3 class="card-title text-base">Resume the same PR</h3>
+              <p class="text-sm opacity-80">
+                Sessions persist and are keyed by PR, so <code>revy owner/repo#1234</code> again
+                <em>revives</em> the session (exactly how lavish reopens an ended session). On (re)open revy
+                refetches the latest diff + head SHA and re-pulls GitHub review threads, so nothing is lost
+                between sittings.
+              </p>
+            </div>
+          </div>
+          <div class="card card-border bg-base-100 border-primary/30">
+            <div class="card-body gap-2">
+              <h3 class="card-title text-base">Re-review after replies</h3>
+              <p class="text-sm opacity-80">
+                <strong>GitHub is the source of truth</strong> for synced comment threads; the local file
+                only caches unsent drafts + agent Q&amp;A. On resume, author replies and
+                resolved/unresolved status come straight from GitHub (GraphQL); resolved threads collapse,
+                open ones surface. New commits → new head SHA → refreshed diff, with a heads-up if your
+                drafts now point at changed lines.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ COMPONENTS ============================ -->
+      <section class="space-y-5">
+        <h2 class="text-2xl font-bold">Components</h2>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="card card-border bg-base-100">
+            <div class="card-body gap-2">
+              <h3 class="card-title text-base">CLI (the AXI surface)</h3>
+              <p class="text-sm opacity-80">Thin command layer any agent can run. Mirrors lavish's verbs.</p>
+              <div class="mockup-code text-xs">
+                <pre data-prefix="$"><code>revy owner/repo#1234   # fetch + open UI</code></pre>
+                <pre data-prefix="$"><code>revy poll              # long-poll for human actions</code></pre>
+                <pre data-prefix="$"><code>revy reply --thread t_01 "…"</code></pre>
+                <pre data-prefix="$"><code>revy order review-order.json</code></pre>
+                <pre data-prefix="$"><code>revy submit            # batch → GitHub</code></pre>
+                <pre data-prefix="$"><code>revy end / revy stop</code></pre>
+              </div>
+            </div>
+          </div>
+          <div class="card card-border bg-base-100">
+            <div class="card-body gap-2">
+              <h3 class="card-title text-base">Server (express, detached)</h3>
+              <ul class="text-sm space-y-1 opacity-80 list-disc pl-5">
+                <li>Loopback bind (127.0.0.1), idle auto-shutdown</li>
+                <li><code>GET /api/poll</code> long-poll w/ heartbeat (agent)</li>
+                <li><code>POST /api/:key/actions</code> queue human actions (browser)</li>
+                <li><code>POST /api/:key/reply</code> agent → thread</li>
+                <li><code>GET /events/:key</code> SSE live updates (browser)</li>
+                <li><code>POST /api/:key/submit</code> → GitHub sync</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card card-border bg-base-100">
+            <div class="card-body gap-2">
+              <h3 class="card-title text-base">Frontend (React + Vite)</h3>
+              <ul class="text-sm space-y-1 opacity-80 list-disc pl-5">
+                <li><code>react-diff-view</code>: GitHub-style; <strong>unified by default</strong> (split toggle later)</li>
+                <li><code>widgets[changeKey]</code> mounts threads + chat under lines</li>
+                <li>App-level shift-click multi-line range selection</li>
+                <li>refractor syntax highlighting</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card card-border bg-base-100">
+            <div class="card-body gap-2">
+              <h3 class="card-title text-base">GitHub adapter (via <code>gh</code>)</h3>
+              <ul class="text-sm space-y-1 opacity-80 list-disc pl-5">
+                <li>Read: <code>gh pr diff --patch</code>, <code>gh pr view --json</code></li>
+                <li>Existing threads via GraphQL (<code>isResolved</code>)</li>
+                <li>Write: one PENDING review → N comments → submit</li>
+                <li>Replies + resolve/unresolve; uses user's <code>gh auth</code></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ SESSION MODEL ============================ -->
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold">Session model</h2>
+        <p class="opacity-80 max-w-3xl">
+          lavish keeps one <code>chat[]</code> in a single global <code>state.json</code>. revy improves on
+          that in two ways: it uses <strong>anchored threads</strong> (many concurrent, one per code
+          selection) plus a recommended order and GitHub sync metadata, and it stores
+          <strong>one file per PR</strong> at <code>~/.revy/sessions/&lt;key&gt;.json</code> (key =
+          hash of <code>owner/repo#number</code>). Per-PR files keep each file small no matter how many PRs
+          you review, avoid rewriting a large blob on every keystroke, and sidestep write contention when
+          several reviews are open at once.
+        </p>
+        <div id="code-session" class="revy-code"></div>
+      </section>
+
+      <!-- ============================ KEY FLOWS / CODE ============================ -->
+      <section class="space-y-6">
+        <h2 class="text-2xl font-bold">How the hard parts work</h2>
+
+        <div class="space-y-3">
+          <h3 class="text-lg font-semibold">1 · Comment sync - one batched GitHub review</h3>
+          <p class="text-sm opacity-80 max-w-3xl">
+            Draft comments live locally; <code>revy submit</code> posts them as a single pending review so
+            the author gets one notification, not N. Multi-line uses <code>start_line</code>/<code>line</code>.
+          </p>
+          <div id="code-github" class="revy-code"></div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-lg font-semibold">2 · Anchored threads in the diff</h3>
+          <p class="text-sm opacity-80 max-w-3xl">
+            react-diff-view's <code>widgets</code> map a change key (e.g. <code>N42</code>) to a React node
+            rendered directly under that line - this is where a comment box or an agent chat thread mounts.
+          </p>
+          <div id="code-widget" class="revy-code"></div>
+
+          <!-- Starting a thread: one selection, two actions -->
+          <div class="rounded-xl border border-base-content/15 bg-base-200/50 p-4 mt-2 space-y-4">
+            <p class="text-sm opacity-90">
+              <strong>Starting a thread (your question):</strong> both kinds begin the same way - select a
+              line or drag a range in the gutter. A <span class="badge badge-xs badge-primary">+</span>
+              affordance appears (just like GitHub); clicking it opens a small menu with the
+              <em>two</em> actions. That single entry point is what keeps review comments and agent
+              questions living side by side in the same anchored thread list.
+            </p>
+
+            <div class="grid gap-4 lg:grid-cols-2 items-start">
+              <!-- Step A: selection + popover -->
+              <div class="space-y-2">
+                <div class="text-xs font-semibold opacity-60 uppercase tracking-wide">1 · Select a line → pick an action</div>
+                <div class="rounded-lg border border-base-content/15 overflow-hidden bg-base-100 font-mono text-[11px] leading-relaxed">
+                  <div class="px-3 py-1.5 bg-base-200 text-base-content/70 border-b border-base-content/10">src/api/handler.ts</div>
+                  <div class="px-3 py-1 flex gap-3"><span class="opacity-40 w-6 text-right">40</span><span class="opacity-70">  try {</span></div>
+                  <div class="px-3 py-1 flex gap-3 items-center" style="background: color-mix(in oklab, var(--color-primary) 14%, transparent); box-shadow: inset 3px 0 0 var(--color-primary);">
+                    <span class="opacity-40 w-6 text-right">41</span>
+                    <span class="badge badge-primary badge-xs font-sans">+</span>
+                    <span class="opacity-90">    await handle(evt);</span>
+                  </div>
+                  <div class="px-3 py-1 flex gap-3"><span class="opacity-40 w-6 text-right">42</span><span class="opacity-70">  } catch (e) {</span></div>
+                  <div class="px-3 py-1 flex gap-3" style="background: color-mix(in oklab, var(--color-error) 12%, transparent);"><span class="opacity-40 w-6 text-right">43</span><span>  <span class="text-error">- </span>logger.warn(e);</span></div>
+                  <div class="px-3 py-1 flex gap-3" style="background: color-mix(in oklab, var(--color-success) 14%, transparent);"><span class="opacity-40 w-6 text-right">44</span><span><span class="text-success">+ </span>// swallow: retried in RetryQueue</span></div>
+                </div>
+                <!-- the popover the + opens -->
+                <ul class="menu bg-base-100 rounded-box border border-base-content/15 w-full max-w-xs text-sm shadow-lg">
+                  <li class="menu-title text-xs">Lines 41-44 selected</li>
+                  <li><a><span class="badge badge-xs badge-soft badge-success">GH</span> Add review comment <span class="opacity-50 text-xs ml-auto">syncs on submit</span></a></li>
+                  <li><a><span class="badge badge-xs badge-soft badge-primary">AI</span> Ask the agent <span class="opacity-50 text-xs ml-auto">private thread</span></a></li>
+                </ul>
+              </div>
+
+              <!-- Step B: the two composers -->
+              <div class="space-y-3">
+                <div class="text-xs font-semibold opacity-60 uppercase tracking-wide">2 · The composer differs by action</div>
+                <div class="card card-border bg-base-100 border-success/40">
+                  <div class="card-body p-3 gap-2">
+                    <div class="flex items-center gap-2 text-sm font-semibold"><span class="badge badge-xs badge-soft badge-success">GH</span> Review comment · <code class="text-xs">handler.ts:41-44</code></div>
+                    <textarea class="textarea textarea-sm w-full" rows="2" placeholder="Leave a review comment…">Swallowing here is fine, but add a comment linking to RetryQueue.</textarea>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button class="btn btn-success btn-xs">Add review comment</button>
+                      <span class="badge badge-soft badge-xs">draft</span>
+                      <span class="text-xs opacity-60">posts to GitHub on <code>submit</code></span>
+                    </div>
+                  </div>
+                </div>
+                <div class="card card-border bg-base-100 border-primary/40">
+                  <div class="card-body p-3 gap-2">
+                    <div class="flex items-center gap-2 text-sm font-semibold"><span class="badge badge-xs badge-soft badge-primary">AI</span> Ask the agent · <code class="text-xs">handler.ts:41-44</code></div>
+                    <textarea class="textarea textarea-sm w-full" rows="2" placeholder="Ask about the selected code…">Why swallow this error instead of rethrowing?</textarea>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button class="btn btn-primary btn-xs">Ask agent</button>
+                      <span class="badge badge-soft badge-xs badge-primary">live thread</span>
+                      <span class="text-xs opacity-60">stays on revy · optional manual "Post to GitHub"</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="text-xs opacity-70">
+              <strong>The distinction:</strong> a <em>review comment</em> is a draft that batches into your
+              GitHub review on <code>revy submit</code>. An <em>agent question</em> opens a live Q&amp;A thread
+              (answered through the poll loop) that <strong>stays on revy's side only</strong> - it is
+              <strong>never posted to GitHub automatically</strong> (not on resolve, not on submit). If you
+              decide a takeaway is worth sharing, one click turns it into a review comment; otherwise the
+              conversation stays private to your local review.
+            </p>
+          </div>
+
+          <p class="text-sm opacity-80 max-w-3xl">
+            <strong>Thread style (your earlier question):</strong> we mirror <strong>GitHub's comment layout</strong>,
+            not chat bubbles - every entry is uniformly left-aligned with an avatar, a handle, and a
+            timestamp. That keeps the tool consistent with the native PR UI these comments sync into, and
+            lets review comments and agent Q&amp;A share one visual language. The reviewer shows as their
+            GitHub username; the agent shows as a configurable handle (e.g. <code>claude</code>) with an
+            <span class="badge badge-xs badge-soft badge-primary">agent</span> tag.
+          </p>
+          <div class="grid gap-3 md:grid-cols-2 mt-2">
+            <div class="card card-border bg-base-100">
+              <div class="card-body p-4 gap-3">
+                <div class="text-xs opacity-60">question thread · anchored under <code>handler.ts:40-45</code> · t_01</div>
+                <div class="flex gap-2">
+                  <div class="avatar avatar-placeholder"><div class="w-7 h-7 rounded-full bg-neutral text-neutral-content"><span class="text-[10px]">EF</span></div></div>
+                  <div class="min-w-0"><div class="text-xs"><span class="font-semibold">eric.figueiredo</span> <span class="opacity-50">· now</span></div><p class="text-sm">Why do we swallow this error?</p></div>
+                </div>
+                <div class="flex gap-2">
+                  <div class="avatar avatar-placeholder"><div class="w-7 h-7 rounded-full bg-primary text-primary-content"><span class="text-[10px]">CL</span></div></div>
+                  <div class="min-w-0"><div class="text-xs"><span class="font-semibold">claude</span> <span class="badge badge-xs badge-soft badge-primary">agent</span> <span class="opacity-50">· now</span></div><p class="text-sm">It's retried upstream in <code>RetryQueue</code>; swallowing here avoids a double-report. Want me to note that in a review comment?</p></div>
+                </div>
+              </div>
+            </div>
+            <div class="card card-border bg-base-100">
+              <div class="card-body p-4 gap-3">
+                <div class="text-xs opacity-60">review comment (draft) · <code>app.ts:12</code></div>
+                <div class="flex gap-2">
+                  <div class="avatar avatar-placeholder"><div class="w-7 h-7 rounded-full bg-neutral text-neutral-content"><span class="text-[10px]">EF</span></div></div>
+                  <div class="min-w-0"><div class="text-xs"><span class="font-semibold">eric.figueiredo</span> <span class="opacity-50">· now</span></div><p class="text-sm">Prefer <code>const</code> here - never reassigned.</p></div>
+                </div>
+                <div class="card-actions"><span class="badge badge-soft badge-sm">draft</span><span class="badge badge-soft badge-sm badge-success">will sync on submit</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-lg font-semibold">3 · AI-recommended review order</h3>
+          <p class="text-sm opacity-80 max-w-3xl">
+            revy hands the agent the file list + diff; the agent returns a ranking with one-line reasons,
+            pushed to the UI as the default order (human can override). Same broker pattern as the threads.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================ STACK ============================ -->
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold">Tech stack</h2>
+        <div class="overflow-x-auto rounded-box border border-base-content/10 bg-base-100">
+          <table class="table table-zebra">
+            <thead><tr><th>Layer</th><th>Choice</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>Runtime</td><td>Node ≥ 22, TypeScript, ESM</td><td>Matches lavish; strong tooling</td></tr>
+              <tr><td>Server</td><td>express + chokidar + <code>open</code></td><td>Exactly lavish's proven stack</td></tr>
+              <tr><td>Frontend</td><td>React 18 + Vite + Tailwind</td><td>Needed by react-diff-view</td></tr>
+              <tr><td>Diff render</td><td><code>react-diff-view</code> (+ refractor)</td><td>Widget system fits inline threads</td></tr>
+              <tr><td>GitHub</td><td><code>gh</code> CLI (REST + GraphQL)</td><td>Uses existing auth; no token handling</td></tr>
+              <tr><td>Agent</td><td>Broker (launching agent), Claude Code first</td><td>Keeps it agent-agnostic</td></tr>
+              <tr><td>Distribution</td><td>Local dev for now (private npm package later, if useful)</td><td>Not a concern yet - keep it simple</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div role="alert" class="alert alert-soft alert-info items-start">
+          <div>
+            <p class="font-semibold">Why Node/TypeScript and not Go?</p>
+            <p class="text-sm mt-1">
+              The diff surface (react-diff-view) is React, so the frontend is JS/TS no matter what - a Go
+              backend would mean two languages and toolchains for one small local tool. Go's real edges
+              (goroutine concurrency, a single static binary) don't pay off here: there's one local user
+              with a handful of long-poll connections, and a <code>/revy</code> + <code>npx</code> skill
+              would give zero-setup distribution later if we ever want it. Staying in one language lets us lift lavish's proven
+              server/poll code almost verbatim - the bigger maintainability win. The GitHub layer is a
+              <code>gh</code> subprocess, so it's language-agnostic; if we ever needed a standalone binary
+              we could reimplement just the thin server in Go behind the same HTTP contract.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ MILESTONES ============================ -->
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold">Milestones</h2>
+        <ul class="steps steps-vertical lg:steps-horizontal w-full">
+          <li class="step step-primary">M1 · Vertical slice</li>
+          <li class="step step-primary">M2 · Threads + chat</li>
+          <li class="step">M3 · Review order</li>
+          <li class="step">M4 · Agent-agnostic polish</li>
+        </ul>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div class="card card-border bg-base-100"><div class="card-body p-4"><h3 class="font-semibold text-sm">M1 · Vertical slice</h3><p class="text-xs opacity-80">CLI launches server for a PR, renders diff, add a line comment, <code>submit</code> syncs it to GitHub as a pending review. De-risks the plumbing.</p></div></div>
+          <div class="card card-border bg-base-100"><div class="card-body p-4"><h3 class="font-semibold text-sm">M2 · Threads + chat</h3><p class="text-xs opacity-80">Range selection, anchored threads, the poll ⇄ reply loop, SSE live updates, import existing GitHub threads.</p></div></div>
+          <div class="card card-border bg-base-100"><div class="card-body p-4"><h3 class="font-semibold text-sm">M3 · Review order</h3><p class="text-xs opacity-80">Agent-produced ranking with reasons; UI orders files by it, human can override; progress tracking.</p></div></div>
+          <div class="card card-border bg-base-100"><div class="card-body p-4"><h3 class="font-semibold text-sm">M4 · Polish</h3><p class="text-xs opacity-80">Clean agent-adapter boundary, resolve/unresolve, rate-limit handling, <code>/revy</code> skill, docs.</p></div></div>
+        </div>
+      </section>
+
+      <!-- ============================ RISKS ============================ -->
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold">Risks &amp; how we handle them</h2>
+        <div class="grid gap-3 md:grid-cols-2">
+          <div role="alert" class="alert alert-soft alert-warning"><span><strong>Diff line → GitHub params.</strong> react-diff-view gives old/new line numbers; GitHub needs <code>line</code>/<code>side</code>/<code>start_line</code>. We own a small mapping + validate the target is in the diff before posting.</span></div>
+          <div role="alert" class="alert alert-soft alert-warning"><span><strong>Stale <code>commit_id</code>.</strong> If the PR is pushed to mid-review, comments can reject. Refetch head SHA on submit; warn if the diff changed.</span></div>
+          <div role="alert" class="alert alert-soft alert-warning"><span><strong>Secondary rate limit (~80/min).</strong> Batching as one pending review is the mitigation; respect <code>Retry-After</code>.</span></div>
+          <div role="alert" class="alert alert-soft alert-warning"><span><strong>Agent presence.</strong> Like lavish, the UI shows when no agent is polling; queued questions/comments persist until the next poll.</span></div>
+        </div>
+      </section>
+
+      <!-- ============================ DECISIONS ============================ -->
+      <section class="space-y-5">
+        <h2 class="text-2xl font-bold">Decisions - locked</h2>
+        <p class="opacity-80 max-w-3xl">Resolved in review. These are now baked into the plan above.</p>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div class="card card-border bg-base-100 border-success/30"><div class="card-body p-4 gap-1"><div class="flex items-center gap-2"><span class="badge badge-success badge-sm">✓</span><h3 class="font-semibold text-sm">Agent brain</h3></div><p class="text-sm opacity-80"><strong>Broker</strong> - the launching agent answers via poll/reply; revy embeds no LLM, staying agent-agnostic.</p></div></div>
+          <div class="card card-border bg-base-100 border-success/30"><div class="card-body p-4 gap-1"><div class="flex items-center gap-2"><span class="badge badge-success badge-sm">✓</span><h3 class="font-semibold text-sm">First milestone</h3></div><p class="text-sm opacity-80"><strong>Thin vertical slice</strong> - launch → diff → one comment → GitHub sync, before threads/ordering.</p></div></div>
+          <div class="card card-border bg-base-100 border-success/30"><div class="card-body p-4 gap-1"><div class="flex items-center gap-2"><span class="badge badge-success badge-sm">✓</span><h3 class="font-semibold text-sm">Diff view</h3></div><p class="text-sm opacity-80"><strong>Unified</strong> by default now; a split/side-by-side <strong>toggle comes later</strong>.</p></div></div>
+          <div class="card card-border bg-base-100 border-success/30"><div class="card-body p-4 gap-1"><div class="flex items-center gap-2"><span class="badge badge-success badge-sm">✓</span><h3 class="font-semibold text-sm">Name</h3></div><p class="text-sm opacity-80">Keep <strong>revy</strong> (CLI + <code>revy-axi</code> npm pkg + <code>/revy</code> skill).</p></div></div>
+          <div class="card card-border bg-base-100 border-success/30"><div class="card-body p-4 gap-1"><div class="flex items-center gap-2"><span class="badge badge-success badge-sm">✓</span><h3 class="font-semibold text-sm">Thread UI</h3></div><p class="text-sm opacity-80"><strong>GitHub-comment style</strong> - uniform alignment, avatar + handle + timestamp; reviewer = GitHub user, agent = handle + <span class="badge badge-xs badge-soft badge-primary">agent</span> tag.</p></div></div>
+          <div class="card card-border bg-base-100 border-success/30"><div class="card-body p-4 gap-1"><div class="flex items-center gap-2"><span class="badge badge-success badge-sm">✓</span><h3 class="font-semibold text-sm">Storage &amp; runtime</h3></div><p class="text-sm opacity-80">One JSON file <strong>per PR</strong>; <strong>Node/TypeScript</strong> (not Go).</p></div></div>
+        </div>
+      </section>
+
+      <!-- ============================ REFERENCES ============================ -->
+      <section class="space-y-3">
+        <h2 class="text-2xl font-bold">Reused building blocks</h2>
+        <div class="flex flex-wrap gap-2">
+          <span class="badge badge-outline badge-lg">lavish-axi (loop pattern)</span>
+          <span class="badge badge-outline badge-lg">react-diff-view (diff + widgets)</span>
+          <span class="badge badge-outline badge-lg">gh CLI (GitHub sync)</span>
+          <span class="badge badge-outline badge-lg">difit (design reference only)</span>
+          <span class="badge badge-outline badge-lg">gh-pr-review (sync-layer reference)</span>
+        </div>
+        <p class="text-xs opacity-60">Research detail: <code>.claude/plans/can-you-check-feature-requests-initial-m-linear-cocoa.md</code></p>
+      </section>
+
+    </main>
+
+    <!-- Mermaid -->
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "dark", securityLevel: "loose" });
+    </script>
+
+    <!-- Code surfaces via @pierre/diffs -->
+    <script type="module">
+      import { File } from "https://esm.sh/@pierre/diffs@1.2.10?bundle";
+      const options = { theme: { light: "github-light", dark: "github-dark" }, themeType: "dark", overflow: "wrap" };
+      const files = [
+        {
+          el: "#code-session",
+          name: "~/.revy/sessions/9f2c1a….json   (one file per PR)",
+          contents: `{
+  "key": "9f2c1a…",                 // sha256(owner/repo#number)[..16] = filename
+  "pr": "braze-inc/platform#1234",
+  "repo": "braze-inc/platform",
+  "number": 1234,
+  "headSha": "abc123…",             // refreshed on every (re)open
+  "url": "http://127.0.0.1:4123/session/9f2c1a…",
+  "status": "open | feedback | ended",
+  "reviewOrder": [
+    { "path": "src/api/handler.ts", "rank": 1,
+      "reason": "entrypoint of the change; defines the new contract" }
+  ],
+  "threads": [                        // many concurrent threads, one per selection
+    {
+      "id": "t_01",
+      "kind": "question | comment",
+      "anchor": { "path": "src/api/handler.ts",
+                  "startLine": 40, "line": 45, "side": "RIGHT" },
+      "status": "draft | synced | resolved",
+      "githubThreadId": null,         // GraphQL id once synced (GitHub = source of truth)
+      "messages": [
+        { "role": "user",  "text": "Why do we swallow this error?", "at": "…" },
+        { "role": "agent", "text": "Retried upstream in RetryQueue…", "at": "…" }
+      ]
+    }
+  ],
+  "pending": [],
+  "updated_at": "…"
+}
+// listing PRs = read the ~/.revy/sessions/ directory (no giant shared file to scan)`,
+        },
+        {
+          el: "#code-github",
+          name: "revy submit → gh (batched pending review)",
+          contents: `# 1. fresh head SHA (guards against mid-review pushes)
+head=$(gh pr view 1234 --json headRefOid --jq '.headRefOid')
+
+# 2. open ONE pending review
+rid=$(gh api -X POST repos/OWNER/REPO/pulls/1234/reviews \\
+      -f event=PENDING --jq '.id')
+
+# 3. add each draft comment (single or multi-line)
+gh api -X POST repos/OWNER/REPO/pulls/1234/reviews/$rid/comments \\
+  -f body='Prefer const here' -f commit_id="$head" \\
+  -f path='src/app.ts' -F line=12 -f side=RIGHT
+
+gh api -X POST repos/OWNER/REPO/pulls/1234/reviews/$rid/comments \\
+  -f body='Refactor this block' -f commit_id="$head" \\
+  -f path='src/utils.ts' -F start_line=50 -f start_side=RIGHT \\
+  -F line=65 -f side=RIGHT
+
+# 4. submit → ONE notification, threads appear in GitHub's native UI
+gh api -X POST repos/OWNER/REPO/pulls/1234/reviews/$rid/events \\
+  -f event=COMMENT -f body='Review via revy'`,
+        },
+        {
+          el: "#code-widget",
+          name: "frontend: mount threads under lines (react-diff-view)",
+          contents: `import { Diff, Hunk, parseDiff, getChangeKey } from 'react-diff-view';
+
+// build one widget per anchored thread, keyed by change key ("N42", "I15"…)
+const widgets = threads.reduce((acc, t) => {
+  acc[t.anchorChangeKey] = <Thread thread={t} onAsk={askAgent} />;
+  return acc;
+}, {});
+
+<Diff viewType={view} diffType={file.type} hunks={file.hunks}
+      widgets={widgets}
+      gutterEvents={{ onClick: ({ change }, e) => select(getChangeKey(change), e.shiftKey) }}>
+  {hunks => hunks.map(h => <Hunk key={h.content} hunk={h} />)}
+</Diff>`,
+        },
+      ];
+      for (const f of files) {
+        const el = document.querySelector(f.el);
+        if (el) new File(options).render({ containerWrapper: el, file: { name: f.name, contents: f.contents } });
+      }
+    </script>
+  </body>
+</html>
