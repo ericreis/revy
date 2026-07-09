@@ -1,0 +1,131 @@
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --link: #4493f8;
+  --add: #3fb950;
+  --del: #f85149;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.msg {
+  padding: 2rem;
+  color: var(--muted);
+}
+.msg-error {
+  color: var(--del);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 0.85rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.topbar-meta {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.topbar-meta a {
+  color: var(--link);
+  text-decoration: none;
+}
+.topbar-meta .dot {
+  margin: 0 0.4rem;
+  opacity: 0.5;
+}
+.topbar-meta .branch {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+}
+.topbar-meta .add {
+  color: var(--add);
+}
+.topbar-meta .del {
+  color: var(--del);
+}
+
+.content {
+  padding: 1.25rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.file {
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  overflow: hidden;
+  background: var(--surface);
+}
+.file-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+}
+.file-path {
+  color: var(--text);
+}
+.file-badge {
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.file-badge-add {
+  color: var(--add);
+  border-color: color-mix(in oklab, var(--add) 45%, transparent);
+}
+.file-badge-delete {
+  color: var(--del);
+  border-color: color-mix(in oklab, var(--del) 45%, transparent);
+}
+
+/* react-diff-view: nudge toward a GitHub-dark look */
+.diff {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  background: var(--surface);
+  color: var(--text);
+}
+.diff-gutter {
+  color: var(--muted);
+}
+.diff-code-insert {
+  background: rgba(63, 185, 80, 0.15);
+}
+.diff-code-delete {
+  background: rgba(248, 81, 73, 0.15);
+}
+.diff-gutter-insert {
+  background: rgba(63, 185, 80, 0.2);
+}
+.diff-gutter-delete {
+  background: rgba(248, 81, 73, 0.2);
+}
