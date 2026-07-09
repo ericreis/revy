@@ -17,7 +17,12 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # Skip Playwright's browser download here; a dedicated step below
+        # installs Chromium. Otherwise the postinstall re-downloads browsers
+        # on every fresh runner, which is slow and can hang npm ci.
+        run: npm ci --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
       - name: Typecheck
         run: npm run typecheck
