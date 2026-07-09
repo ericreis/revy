@@ -9,5 +9,8 @@ playwright-report/
 test-results/
 coverage/
 
+# no-mistakes evidence (auto-generated screenshots, not source code)
+.no-mistakes/evidence/
+
 # Local Claude Code settings (machine-local; not shared)
 .claude/settings.local.json
