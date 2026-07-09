@@ -83,6 +83,41 @@ test('ordinary files render their diff while generated files auto-collapse', asy
   );
 });
 
+test('source diffs are syntax-highlighted by language', async ({ page }) => {
+  await page.goto(launch.url);
+
+  // greeting.ts is TypeScript, so refractor emits Prism token spans.
+  const greeting = fileSection(page, 'src/greeting.ts');
+  await expect(greeting.locator('.file-body .token.keyword').first()).toBeVisible();
+  await expect(greeting.locator('.file-body .token.string').first()).toBeVisible();
+});
+
+test('the wrap toggle switches line wrapping on and off', async ({ page }) => {
+  await page.goto(launch.url);
+
+  // greeting.ts has a line long enough to overflow the viewport, so wrapping
+  // has a visible effect: the file body stops scrolling horizontally.
+  const body = fileSection(page, 'src/greeting.ts').locator('.file-body');
+  const wrapButton = page.getByRole('button', { name: 'Wrap' });
+  const overflows = () => body.evaluate((el) => el.scrollWidth > el.clientWidth);
+
+  // Off by default: the long line overflows and the body scrolls horizontally.
+  await expect(body).not.toHaveClass(/\bwrap\b/);
+  await expect(wrapButton).toHaveAttribute('aria-pressed', 'false');
+  expect(await overflows()).toBe(true);
+
+  // On: the long line wraps, so there is no more horizontal overflow.
+  await wrapButton.click();
+  await expect(body).toHaveClass(/\bwrap\b/);
+  await expect(wrapButton).toHaveAttribute('aria-pressed', 'true');
+  expect(await overflows()).toBe(false);
+
+  // Off again: back to scrolling.
+  await wrapButton.click();
+  await expect(body).not.toHaveClass(/\bwrap\b/);
+  expect(await overflows()).toBe(true);
+});
+
 test('collapse all / expand all toggles every file body', async ({ page }) => {
   await page.goto(launch.url);
   const heads = page.locator('.file-head');
