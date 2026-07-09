@@ -31,4 +31,4 @@ index 5555555..6666666 100644
 +  return `Hello, ${name}!`;
  }
 +
-+export const DEFAULT_GREETING = greet('');
++export const DEFAULT_GREETING = greet('a friendly default greeting message that is intentionally long enough to overflow the diff viewport horizontally, so the Wrap toggle visibly switches between scrolling and wrapping');
