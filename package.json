@@ -25,6 +25,10 @@
     "express": "^5.1.0",
     "open": "^10.1.0"
   },
+  "overrides": {
+    "@emnapi/core": "1.11.2",
+    "@emnapi/runtime": "1.11.2"
+  },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@types/express": "^5.0.0",
