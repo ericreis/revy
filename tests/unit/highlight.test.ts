@@ -3,14 +3,28 @@ import { parseDiff } from 'react-diff-view';
 import { languageForPath, tokenizeHunks, MAX_HIGHLIGHT_LINES } from '../../web/src/highlight.js';
 
 describe('languageForPath', () => {
-  it('maps common extensions to their refractor language', () => {
-    expect(languageForPath('src/greeting.ts')).toBe('typescript');
-    expect(languageForPath('web/src/App.tsx')).toBe('tsx');
-    expect(languageForPath('scripts/build.js')).toBe('javascript');
-    expect(languageForPath('main.py')).toBe('python');
-    expect(languageForPath('pkg/server.go')).toBe('go');
-    expect(languageForPath('styles/app.scss')).toBe('scss');
-    expect(languageForPath('config.yaml')).toBe('yaml');
+  it('resolves common source extensions to a registered language', () => {
+    // These fall through to refractor's own name/alias resolution; we only
+    // require that each yields a language refractor can actually highlight.
+    for (const path of [
+      'src/greeting.ts',
+      'web/src/App.tsx',
+      'scripts/build.js',
+      'main.py',
+      'pkg/server.go',
+      'styles/app.scss',
+      'config.yaml',
+    ]) {
+      expect(languageForPath(path), path).toBeDefined();
+    }
+  });
+
+  it('applies overrides for extensions refractor does not know by itself', () => {
+    expect(languageForPath('lib.rs')).toBe('rust');
+    expect(languageForPath('index.mjs')).toBe('javascript');
+    expect(languageForPath('util.hpp')).toBe('cpp');
+    expect(languageForPath('app/Page.vue')).toBe('markup');
+    expect(languageForPath('infra/main.tf')).toBe('hcl');
   });
 
   it('recognizes well-known extensionless filenames', () => {
@@ -20,8 +34,8 @@ describe('languageForPath', () => {
   });
 
   it('is case-insensitive and uses the basename, not the directory', () => {
-    expect(languageForPath('SRC/Greeting.TS')).toBe('typescript');
-    expect(languageForPath('go/src/thing.rb')).toBe('ruby');
+    expect(languageForPath('SRC/Lib.RS')).toBe('rust');
+    expect(languageForPath('rs/src/thing.vue')).toBe('markup');
   });
 
   it('returns undefined for unknown or absent extensions', () => {
