@@ -17,12 +17,9 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # --ignore-scripts skips dependency lifecycle scripts, which are not
-        # needed here (esbuild/rollup/rolldown ship prebuilt platform binaries,
-        # and Playwright browsers are installed by the dedicated step below).
-        # esbuild's postinstall in particular hangs npm ci on fresh runners.
-        # This is also the safer default against supply-chain postinstall abuse.
-        run: npm ci --no-audit --no-fund --ignore-scripts
+        # Verbose + short timeout to diagnose a silent npm ci hang on fresh runners.
+        timeout-minutes: 4
+        run: npm ci --no-audit --no-fund --ignore-scripts --loglevel verbose
 
       - name: Typecheck
         run: npm run typecheck
