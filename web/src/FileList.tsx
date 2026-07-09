@@ -1,15 +1,18 @@
 import FileView from './FileView';
 import type { DiffFile } from './diff';
+import type { ViewType } from './useReview';
 
 export default function FileList({
   files,
   collapsed,
   wrap,
+  viewType,
   onToggle,
 }: {
   files: DiffFile[];
   collapsed: Set<string>;
   wrap: boolean;
+  viewType: ViewType;
   onToggle: (id: string) => void;
 }) {
   if (files.length === 0) {
@@ -23,6 +26,7 @@ export default function FileList({
           file={f}
           collapsed={collapsed.has(f.id)}
           wrap={wrap}
+          viewType={viewType}
           onToggle={() => onToggle(f.id)}
         />
       ))}
