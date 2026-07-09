@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Diff, Hunk } from 'react-diff-view';
 import 'react-diff-view/style/index.css';
 import type { DiffFile } from './diff';
-import { languageForPath, tokenizeHunks } from './highlight';
+import { tokenizeHunks } from './highlight';
 
 /** A single changed file: collapsible header + its unified diff. */
 export default function FileView({
@@ -19,7 +19,7 @@ export default function FileView({
   // Highlight lazily: only expanded files reach the tokenizer, and the result
   // is memoized so toggling wrap or collapse never re-tokenizes.
   const tokens = useMemo(
-    () => (collapsed ? undefined : tokenizeHunks(file.file.hunks, languageForPath(file.path))),
+    () => (collapsed ? undefined : tokenizeHunks(file.file.hunks, file.path)),
     [collapsed, file.file.hunks, file.path],
   );
 

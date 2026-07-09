@@ -6,7 +6,7 @@ import { tokenize, type HunkData, type HunkTokens } from 'react-diff-view';
  * doesn't recognize out of the box, registering each as an alias of a grammar
  * it already ships. refractor already knows most extensions through its own
  * names and aliases (`ts`, `js`, `py`, `go`, `css`, `html`, `md`, ...); these
- * are just the gaps, so `languageForPath` can then resolve everything with a
+ * are just the gaps, so `tokenizeHunks` can then resolve any extension with a
  * single `refractor.registered` lookup. Keys are lowercase, without a dot.
  */
 refractor.alias({
@@ -47,23 +47,20 @@ refractor.alias({
  */
 export const MAX_HIGHLIGHT_LINES = 3000;
 
-/** The refractor/Prism language for a file path, if one is registered. */
-export function languageForPath(path: string): string | undefined {
+/**
+ * Syntax-highlight a file's hunks into tokens for `<Diff tokens>`. The language
+ * is the file's extension (or its bare name), which refractor resolves through
+ * its built-in languages plus the aliases registered above. Returns `undefined`
+ * (plain, un-highlighted rendering) when the extension maps to no known
+ * language, the diff is too large, or highlighting fails for any reason.
+ */
+export function tokenizeHunks(hunks: HunkData[], path: string): HunkTokens | undefined {
   const filename = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
   const dot = filename.lastIndexOf('.');
-  // For dotfiles like `.gitignore` this yields `gitignore`, which refractor
-  // knows; for `Dockerfile`/`Makefile` the bare name is itself the language.
-  const ext = dot >= 0 ? filename.slice(dot + 1) : filename;
-  return refractor.registered(ext) ? ext : undefined;
-}
-
-/**
- * Syntax-highlight a file's hunks into tokens for `<Diff tokens>`. Returns
- * `undefined` (plain, un-highlighted rendering) when the language is unknown,
- * the diff is too large, or highlighting fails for any reason.
- */
-export function tokenizeHunks(hunks: HunkData[], language: string | undefined): HunkTokens | undefined {
-  if (!language) return undefined;
+  // For dotfiles like `.gitignore` this yields `gitignore`; for `Dockerfile` /
+  // `Makefile` the bare name is itself a language refractor knows.
+  const language = dot >= 0 ? filename.slice(dot + 1) : filename;
+  if (!refractor.registered(language)) return undefined;
 
   const lineCount = hunks.reduce((total, hunk) => total + hunk.changes.length, 0);
   if (lineCount > MAX_HIGHLIGHT_LINES) return undefined;
