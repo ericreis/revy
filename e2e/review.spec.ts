@@ -92,6 +92,54 @@ test('source diffs are syntax-highlighted by language', async ({ page }) => {
   await expect(greeting.locator('.file-body .token.string').first()).toBeVisible();
 });
 
+test('the split toggle switches the diff between unified and side-by-side views', async ({
+  page,
+}) => {
+  await page.goto(launch.url);
+
+  const greeting = fileSection(page, 'src/greeting.ts');
+  const diff = greeting.locator('.file-body table.diff');
+  const splitButton = page.getByRole('button', { name: 'Split' });
+
+  // Unified by default: the diff table renders in a single column.
+  await expect(diff).toHaveClass(/\bdiff-unified\b/);
+  await expect(splitButton).toHaveAttribute('aria-pressed', 'false');
+
+  // On: the diff switches to the split (side-by-side) layout, and split-only
+  // rows (left/right halves of a change) appear.
+  await splitButton.click();
+  await expect(diff).toHaveClass(/\bdiff-split\b/);
+  await expect(splitButton).toHaveAttribute('aria-pressed', 'true');
+  await expect(splitButton).toHaveClass(/\bactive\b/);
+
+  // Off again: back to the unified layout.
+  await splitButton.click();
+  await expect(diff).toHaveClass(/\bdiff-unified\b/);
+  await expect(splitButton).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('the split view choice persists across reloads via localStorage', async ({ page }) => {
+  await page.goto(launch.url);
+
+  const splitButton = page.getByRole('button', { name: 'Split' });
+  await splitButton.click();
+  await expect(splitButton).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => localStorage.getItem('revy-view-type'))).toBe('split');
+
+  // A fresh load of the same origin restores the split view from localStorage.
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Split' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(fileSection(page, 'src/greeting.ts').locator('.file-body table.diff')).toHaveClass(
+    /\bdiff-split\b/,
+  );
+
+  // Reset so the persisted preference does not leak into other tests.
+  await page.getByRole('button', { name: 'Split' }).click();
+});
+
 test('the wrap toggle switches line wrapping on and off', async ({ page }) => {
   await page.goto(launch.url);
 

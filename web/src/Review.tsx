@@ -5,7 +5,7 @@ import { useReview } from './useReview';
 import type { Session } from './types';
 
 export default function Review({ session }: { session: Session }) {
-  const { files, collapsed, activeId, wrap, toggle, expandAll, collapseAll, toggleWrap, jump } =
+  const { files, collapsed, activeId, wrap, viewType, toggle, expandAll, collapseAll, toggleWrap, toggleViewType, jump } =
     useReview(session);
 
   return (
@@ -16,13 +16,15 @@ export default function Review({ session }: { session: Session }) {
           files={files}
           activeId={activeId}
           wrap={wrap}
+          viewType={viewType}
           onSelect={jump}
           onExpandAll={expandAll}
           onCollapseAll={collapseAll}
           onToggleWrap={toggleWrap}
+          onToggleViewType={toggleViewType}
         />
         <main className="content">
-          <FileList files={files} collapsed={collapsed} wrap={wrap} onToggle={toggle} />
+          <FileList files={files} collapsed={collapsed} wrap={wrap} viewType={viewType} onToggle={toggle} />
         </main>
       </div>
     </div>

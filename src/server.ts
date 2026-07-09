@@ -36,9 +36,11 @@ export function buildApp(onActivity?: () => void): express.Express {
   // Static frontend assets.
   app.use(express.static(WEB_DIST));
 
-  // SPA route: the review surface for a given PR session.
+  // SPA route: the review surface for a given PR session. Serve via the `root`
+  // option so `send` only dotfile-checks the relative path; otherwise an
+  // absolute WEB_DIST under a hidden directory (e.g. ~/.revy) 404s.
   app.get('/session/:key', (_req, res) => {
-    res.sendFile(path.join(WEB_DIST, 'index.html'));
+    res.sendFile('index.html', { root: WEB_DIST });
   });
 
   app.get('/', (_req, res) => {

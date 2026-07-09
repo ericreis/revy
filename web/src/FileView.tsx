@@ -2,18 +2,21 @@ import { useMemo } from 'react';
 import { Diff, Hunk } from 'react-diff-view';
 import 'react-diff-view/style/index.css';
 import type { DiffFile } from './diff';
+import type { ViewType } from './useReview';
 import { tokenizeHunks } from './highlight';
 
-/** A single changed file: collapsible header + its unified diff. */
+/** A single changed file: collapsible header + its diff (unified or split). */
 export default function FileView({
   file,
   collapsed,
   wrap,
+  viewType,
   onToggle,
 }: {
   file: DiffFile;
   collapsed: boolean;
   wrap: boolean;
+  viewType: ViewType;
   onToggle: () => void;
 }) {
   // Highlight lazily: only expanded files reach the tokenizer, and the result
@@ -37,7 +40,7 @@ export default function FileView({
       </button>
       {!collapsed && (
         <div className={`file-body${wrap ? ' wrap' : ''}`}>
-          <Diff viewType="unified" diffType={file.file.type} hunks={file.file.hunks} tokens={tokens}>
+          <Diff viewType={viewType} diffType={file.file.type} hunks={file.file.hunks} tokens={tokens}>
             {(hunks) => hunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)}
           </Diff>
         </div>
