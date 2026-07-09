@@ -83,6 +83,33 @@ test('ordinary files render their diff while generated files auto-collapse', asy
   );
 });
 
+test('source diffs are syntax-highlighted by language', async ({ page }) => {
+  await page.goto(launch.url);
+
+  // greeting.ts is TypeScript, so refractor emits Prism token spans.
+  const greeting = fileSection(page, 'src/greeting.ts');
+  await expect(greeting.locator('.file-body .token.keyword').first()).toBeVisible();
+  await expect(greeting.locator('.file-body .token.string').first()).toBeVisible();
+});
+
+test('the wrap toggle switches line wrapping on and off', async ({ page }) => {
+  await page.goto(launch.url);
+
+  const body = fileSection(page, 'src/greeting.ts').locator('.file-body');
+  const wrapButton = page.getByRole('button', { name: 'Wrap' });
+
+  // Off by default: long lines scroll instead of wrapping.
+  await expect(body).not.toHaveClass(/\bwrap\b/);
+  await expect(wrapButton).toHaveAttribute('aria-pressed', 'false');
+
+  await wrapButton.click();
+  await expect(body).toHaveClass(/\bwrap\b/);
+  await expect(wrapButton).toHaveAttribute('aria-pressed', 'true');
+
+  await wrapButton.click();
+  await expect(body).not.toHaveClass(/\bwrap\b/);
+});
+
 test('collapse all / expand all toggles every file body', async ({ page }) => {
   await page.goto(launch.url);
   const heads = page.locator('.file-head');

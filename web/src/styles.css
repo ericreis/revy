@@ -123,6 +123,11 @@ body {
   color: var(--text);
   border-color: var(--muted);
 }
+.sidebar-actions button.active {
+  color: var(--text);
+  background: color-mix(in oklab, var(--accent) 22%, var(--surface-2));
+  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+}
 
 .tree {
   padding: 0.35rem 0;
@@ -300,4 +305,79 @@ body {
 }
 .diff-gutter-delete {
   background: rgba(248, 81, 73, 0.2);
+}
+
+/*
+ * Line wrapping. By default long lines are kept on one line and the file body
+ * scrolls horizontally (the table sizes to its content). The "Wrap" toggle
+ * adds `.wrap`, letting lines break so wide code needs no horizontal scroll.
+ */
+.file-body {
+  overflow-x: auto;
+}
+.file-body:not(.wrap) .diff {
+  table-layout: auto;
+  width: max-content;
+  min-width: 100%;
+}
+.file-body:not(.wrap) .diff-code {
+  white-space: pre;
+  word-break: normal;
+  word-wrap: normal;
+}
+.file-body.wrap .diff-code {
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Syntax highlighting (refractor/Prism tokens), GitHub-dark palette. */
+.diff .token.comment,
+.diff .token.prolog,
+.diff .token.cdata {
+  color: var(--muted);
+}
+.diff .token.punctuation {
+  color: #c9d1d9;
+}
+.diff .token.keyword,
+.diff .token.important,
+.diff .token.atrule,
+.diff .token.deleted {
+  color: #ff7b72;
+}
+.diff .token.string,
+.diff .token.char,
+.diff .token.attr-value,
+.diff .token.regex,
+.diff .token.inserted {
+  color: #a5d6ff;
+}
+.diff .token.number,
+.diff .token.boolean,
+.diff .token.constant,
+.diff .token.symbol {
+  color: #79c0ff;
+}
+.diff .token.function,
+.diff .token.class-name {
+  color: #d2a8ff;
+}
+.diff .token.tag,
+.diff .token.selector,
+.diff .token.builtin {
+  color: #7ee787;
+}
+.diff .token.property,
+.diff .token.attr-name,
+.diff .token.variable {
+  color: #79c0ff;
+}
+.diff .token.operator,
+.diff .token.entity,
+.diff .token.url {
+  color: #ff7b72;
+}
+.diff .token.namespace {
+  opacity: 0.8;
 }

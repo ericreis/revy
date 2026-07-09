@@ -7,6 +7,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // refractor bundles grammars for every language so any PR file highlights.
+    // This is a localhost tool served once, so the larger bundle is a non-issue.
+    chunkSizeWarningLimit: 1000,
   },
   plugins: [react()],
 });
