@@ -1,0 +1,303 @@
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #1c2128;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --link: #4493f8;
+  --add: #3fb950;
+  --del: #f85149;
+  --mod: #d29922;
+  --accent: #388bfd;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.msg {
+  padding: 2rem;
+  color: var(--muted);
+}
+.msg-error {
+  color: var(--del);
+}
+
+.add {
+  color: var(--add);
+}
+.del {
+  color: var(--del);
+}
+
+/* App shell: fixed header, then independently scrolling sidebar + content. */
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  flex: none;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.topbar-meta {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.topbar-meta a {
+  color: var(--link);
+  text-decoration: none;
+}
+.topbar-meta .dot {
+  margin: 0 0.4rem;
+  opacity: 0.5;
+}
+.topbar-meta .branch {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+}
+
+.layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* Sidebar file tree */
+.sidebar {
+  width: 300px;
+  flex: none;
+  overflow: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+.sidebar-head {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.sidebar-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+.sidebar-actions button {
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+}
+.sidebar-actions button:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.tree {
+  padding: 0.35rem 0;
+  font-size: 0.8rem;
+}
+.tree-dir > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  color: var(--muted);
+  font-weight: 600;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tree-dir > summary::-webkit-details-marker {
+  display: none;
+}
+.tree-dir > summary::before {
+  content: '▾';
+  display: inline-block;
+  width: 0.9em;
+  margin-right: 0.15rem;
+  font-size: 0.7em;
+  color: var(--muted);
+}
+.tree-dir:not([open]) > summary::before {
+  transform: rotate(-90deg);
+}
+.tree-file {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+.tree-file:hover {
+  background: var(--surface-2);
+}
+.tree-file.active {
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+.tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tree-counts {
+  font-size: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  flex: none;
+}
+.tree-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+  background: var(--muted);
+}
+.dot-add {
+  background: var(--add);
+}
+.dot-delete {
+  background: var(--del);
+}
+.dot-modify {
+  background: var(--mod);
+}
+.dot-rename {
+  background: var(--accent);
+}
+
+/* Content / diffs */
+.content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 1.1rem 1.25rem;
+}
+
+.file {
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  overflow: hidden;
+  background: var(--surface);
+  scroll-margin-top: 12px;
+}
+.file-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  border: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  text-align: left;
+}
+.file-head:hover {
+  background: color-mix(in oklab, var(--surface-2) 70%, var(--border));
+}
+.chevron {
+  color: var(--muted);
+  font-size: 0.7rem;
+  transition: transform 0.12s ease;
+}
+.chevron.collapsed {
+  transform: rotate(-90deg);
+}
+.file-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-counts {
+  flex: none;
+  font-size: 0.75rem;
+}
+.file-badge {
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  flex: none;
+}
+.file-badge-add {
+  color: var(--add);
+  border-color: color-mix(in oklab, var(--add) 45%, transparent);
+}
+.file-badge-delete {
+  color: var(--del);
+  border-color: color-mix(in oklab, var(--del) 45%, transparent);
+}
+.file-badge-modify {
+  color: var(--mod);
+  border-color: color-mix(in oklab, var(--mod) 45%, transparent);
+}
+
+/* react-diff-view: GitHub-dark look */
+.diff {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  background: var(--surface);
+  color: var(--text);
+}
+.diff-gutter {
+  color: var(--muted);
+}
+.diff-code-insert {
+  background: rgba(63, 185, 80, 0.15);
+}
+.diff-code-delete {
+  background: rgba(248, 81, 73, 0.15);
+}
+.diff-gutter-insert {
+  background: rgba(63, 185, 80, 0.2);
+}
+.diff-gutter-delete {
+  background: rgba(248, 81, 73, 0.2);
+}
