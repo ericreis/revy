@@ -17,9 +17,12 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # Verbose + short timeout to diagnose a silent npm ci hang on fresh runners.
-        timeout-minutes: 4
-        run: npm ci --no-audit --no-fund --ignore-scripts --loglevel verbose
+        # Playwright browsers are installed by the dedicated step below, so skip
+        # the redundant download during install. (Registry is pinned to public
+        # npm via the repo .npmrc.)
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm ci --no-audit --no-fund
 
       - name: Typecheck
         run: npm run typecheck
