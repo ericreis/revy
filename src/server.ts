@@ -3,9 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { readSession, writeSession, addThread, nextThreadId, updateThread } from './session.js';
-import type { Thread } from './session.js';
+import type { Thread, Session } from './session.js';
 import { parsePrArg } from './pr.js';
-import { submitReview } from './github.js';
+import { submitReview, fetchReviewThreads } from './github.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 // dist/serverEntry.js -> ../web/dist ; src/server.ts (via tsx) -> ../web/dist
@@ -35,6 +35,51 @@ export function buildApp(onActivity?: () => void): express.Express {
       res.json(session);
     } catch (err) {
       next(err);
+    }
+  });
+
+  app.post('/api/session/:key/refresh', async (req, res, next) => {
+    try {
+      const session = await readSession(req.params.key);
+      if (!session) {
+        res.status(404).json({ error: 'session not found' });
+        return;
+      }
+
+      const ref = parsePrArg(session.pr);
+      const fetched = await fetchReviewThreads(ref);
+      const ghThreads: Thread[] = fetched.map((ft) => ({
+        id: `gh_${ft.id}`,
+        kind: 'comment' as const,
+        anchor: {
+          path: ft.path,
+          line: ft.fileLine ?? ft.line,
+          side: ft.side,
+          startLine: ft.startLine,
+        },
+        status: ft.isResolved ? ('resolved' as const) : ('synced' as const),
+        githubThreadId: ft.id,
+        messages: ft.comments.map((c) => ({
+          role: 'user' as const,
+          text: c.body,
+          at: c.createdAt,
+        })),
+      }));
+
+      const existingGhIds = new Set(
+        session.threads.filter((t) => t.githubThreadId).map((t) => t.githubThreadId),
+      );
+      const newThreads = ghThreads.filter((t) => !existingGhIds.has(t.githubThreadId));
+      for (const t of newThreads) {
+        addThread(session, t);
+      }
+      await writeSession(session);
+
+      res.json({ added: newThreads.length, threads: session.threads });
+    } catch (err) {
+      res.status(502).json({
+        error: err instanceof Error ? err.message : 'Failed to refresh review threads',
+      });
     }
   });
 

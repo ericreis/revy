@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { getChangeKey, type ChangeData } from 'react-diff-view';
 import { toDiffFiles, isLargeOrGenerated, type DiffFile } from './diff';
 import type { Session, Thread, Anchor } from './types';
@@ -84,6 +84,25 @@ export function useReview(session: Session): ReviewState {
   const [composing, setComposing] = useState<string | null>(null);
   const [composerText, setComposerText] = useState('');
   const [nextId, setNextId] = useState(threads.length + 1);
+
+  // Poll for new review threads from GitHub every 30s
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/session/${session.key}/refresh`, { method: 'POST' });
+        if (res.ok) {
+          const data = (await res.json()) as { added: number; threads: Thread[] };
+          if (data.added > 0) {
+            setThreads(data.threads);
+          }
+        }
+      } catch {
+        // Silently retry on next interval
+      }
+    };
+    const id = setInterval(poll, 30_000);
+    return () => clearInterval(id);
+  }, [session.key]);
 
   // Compute the selection set from selStart/selEnd
   const selection = useMemo(() => {
