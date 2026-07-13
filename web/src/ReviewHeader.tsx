@@ -4,18 +4,46 @@ export default function ReviewHeader({
   session,
   draftCount,
   submitting,
+  countdown,
+  manualCooldown,
+  refreshing,
+  onRefresh,
   onSubmit,
 }: {
   session: Session;
   draftCount: number;
   submitting: boolean;
+  countdown: number;
+  manualCooldown: number;
+  refreshing: boolean;
+  onRefresh: () => void;
   onSubmit: () => void;
 }) {
+  const cooldownActive = manualCooldown > 0;
+  const btnDisabled = cooldownActive || refreshing;
+
   return (
     <header className="topbar">
       <div className="topbar-row">
         <div className="topbar-title">{session.title}</div>
         <div className="topbar-actions">
+          <button
+            type="button"
+            className="btn btn-sm btn-refresh"
+            disabled={btnDisabled}
+            onClick={onRefresh}
+            title={
+              refreshing ? 'Refreshing…' :
+              cooldownActive ? `Wait ${manualCooldown}s before refreshing again` :
+              'Refresh review threads from GitHub'
+            }
+          >
+            <span className={`refresh-icon${refreshing ? ' spinning' : ''}`}>⟳</span>
+            {refreshing ? '…' : cooldownActive ? `${manualCooldown}s` : ''}
+          </button>
+          <span className="countdown-hint">
+            {refreshing ? 'refreshing' : `auto in ${countdown}s`}
+          </span>
           {draftCount > 0 && (
             <button
               type="button"

@@ -10,6 +10,7 @@ export default function Review({ session }: { session: Session }) {
     files, collapsed, activeId, wrap, viewType, toggle, expandAll, collapseAll, toggleWrap, toggleViewType, jump,
     selection, selAnchor, handleGutterClick, clearSelection,
     threads, composing, composerText, setComposerText, openComposer, closeComposer, addComment,
+    countdown, manualCooldown, refreshing, handleRefresh,
   } = useReview(session);
 
   const [submitting, setSubmitting] = useState(false);
@@ -35,7 +36,7 @@ export default function Review({ session }: { session: Session }) {
 
   return (
     <div className="app">
-      <ReviewHeader session={session} draftCount={draftCount} submitting={submitting} onSubmit={handleSubmit} />
+      <ReviewHeader session={session} draftCount={draftCount} submitting={submitting} countdown={countdown} manualCooldown={manualCooldown} refreshing={refreshing} onRefresh={handleRefresh} onSubmit={handleSubmit} />
       <div className="layout">
         <Sidebar
           files={files}

@@ -605,3 +605,24 @@ body {
   opacity: 0.5;
   cursor: default;
 }
+
+.btn-refresh {
+  gap: 0.2rem;
+  min-width: 3.2rem;
+}
+.refresh-icon {
+  display: inline-block;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.refresh-icon.spinning {
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.countdown-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
