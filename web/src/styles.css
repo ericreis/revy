@@ -57,9 +57,25 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
+.topbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
 .topbar-title {
   font-size: 1.05rem;
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .topbar-meta {
   margin-top: 0.25rem;
