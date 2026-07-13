@@ -5,8 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import open from 'open';
 import { parsePrArg } from './pr.js';
-import { fetchPr } from './github.js';
-import { readSession, writeSession, stateDir, type Session } from './session.js';
+import { fetchPr, fetchReviewThreads, submitReview } from './github.js';
+import { readSession, writeSession, stateDir, updateThread, type Session } from './session.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -70,12 +70,7 @@ async function cmdSubmit(): Promise<void> {
     return;
   }
 
-  const { submitReview, fetchReviewThreads } = await import('./github.js');
-  const ref = { owner: '', repo: '', number: 0, slug: session.pr, key: session.key };
-  const parts = session.pr.split(/[\/#]/);
-  ref.owner = parts[0];
-  ref.repo = parts[1];
-  ref.number = Number(parts[2]);
+  const ref = parsePrArg(session.pr);
 
   process.stdout.write(`Submitting ${draftComments.length} comment(s) to ${session.pr} ...\n`);
 
@@ -92,10 +87,8 @@ async function cmdSubmit(): Promise<void> {
 
   // Mark submitted threads as synced
   for (const t of draftComments) {
-    const { updateThread } = await import('./session.js');
     updateThread(session, t.id, { status: 'synced' });
   }
-  const { writeSession } = await import('./session.js');
   await writeSession(session);
 
   process.stdout.write('Review submitted to GitHub.\n');
@@ -129,7 +122,6 @@ async function main(): Promise<void> {
   // Fetch existing GitHub review threads and merge them in
   let ghThreads: import('./session.js').Thread[] = [];
   try {
-    const { fetchReviewThreads } = await import('./github.js');
     const fetched = await fetchReviewThreads(ref);
     ghThreads = fetched.map((ft) => ({
       id: `gh_${ft.id}`,

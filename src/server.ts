@@ -49,7 +49,7 @@ export function buildApp(onActivity?: () => void): express.Express {
         return;
       }
       const thread: Thread = {
-        id: nextThreadId(),
+        id: nextThreadId(session),
         kind: 'comment',
         anchor,
         status: 'draft',

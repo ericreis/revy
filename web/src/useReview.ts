@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { getChangeKey } from 'react-diff-view';
+import { getChangeKey, type ChangeData } from 'react-diff-view';
 import { toDiffFiles, isLargeOrGenerated, type DiffFile } from './diff';
 import type { Session, Thread, Anchor } from './types';
 
@@ -32,11 +32,12 @@ export function getSelectedChangeKeys(
   return keys;
 }
 
-export function changeToAnchor(changeKey: string, path: string): Anchor {
-  const prefix = changeKey[0];
-  const line = Number(changeKey.slice(1));
-  let side: 'LEFT' | 'RIGHT' = 'RIGHT';
-  if (prefix === 'D') side = 'LEFT';
+export function changeToAnchor(change: ChangeData, path: string): Anchor {
+  const changeKey = getChangeKey(change);
+  const side: 'LEFT' | 'RIGHT' = change.type === 'delete' ? 'LEFT' : 'RIGHT';
+  const line = change.type === 'normal'
+    ? (side === 'RIGHT' ? change.newLineNumber : change.oldLineNumber)
+    : change.lineNumber;
   return { path, line, side, changeKey };
 }
 
@@ -99,8 +100,13 @@ export function useReview(session: Session): ReviewState {
   const selAnchor = useMemo(() => {
     const key = selEnd ?? selStart;
     if (!key || !selFilePath) return null;
-    return changeToAnchor(key, selFilePath);
-  }, [selEnd, selStart, selFilePath]);
+    const change = files
+      .filter((f) => f.path === selFilePath)
+      .flatMap((f) => f.file.hunks.flatMap((h) => h.changes))
+      .find((c) => getChangeKey(c) === key);
+    if (!change) return null;
+    return changeToAnchor(change, selFilePath);
+  }, [selEnd, selStart, selFilePath, files]);
 
   const handleGutterClick = useCallback((changeKey: string, _changeType: string, filePath: string, shiftKey: boolean) => {
     setSelEnd(changeKey);

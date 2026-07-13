@@ -60,9 +60,12 @@ export async function writeSession(session: Session): Promise<void> {
   await fs.writeFile(sessionFile(session.key), `${JSON.stringify(session, null, 2)}\n`);
 }
 
-let _nextId = 1;
-export function nextThreadId(): string {
-  return `t_${String(_nextId++).padStart(2, '0')}`;
+export function nextThreadId(session: Session): string {
+  const max = session.threads.reduce((acc, t) => {
+    const m = /^t_(\d+)$/.exec(t.id);
+    return m ? Math.max(acc, Number(m[1])) : acc;
+  }, 0);
+  return `t_${String(max + 1).padStart(2, '0')}`;
 }
 
 export function addThread(session: Session, thread: Thread): void {
