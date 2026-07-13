@@ -40,9 +40,4 @@ test('an imported GitHub review thread anchors to the comment file line, not the
   const precedingLine = widgetRow.locator('xpath=preceding-sibling::tr[contains(@class, "diff-line")][1]');
   await expect(precedingLine).toContainText('return `Hello, ${name}!`;');
   await expect(precedingLine).not.toContainText("return 'Hello there!';");
-
-  await page.screenshot({
-    path: '/var/folders/fn/jxblygc17dj9km48bmbps1rm0000gn/T/no-mistakes-evidence/01KXE625CBB34XFFVZTP9NGW0M/imported-review-thread-anchor.png',
-    fullPage: true,
-  });
 });
