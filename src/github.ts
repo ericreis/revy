@@ -62,7 +62,9 @@ export interface FetchedThread {
   id: string;
   isResolved: boolean;
   path: string;
+  /** Thread-level diff position (PullRequestReviewThread.line); prefer `fileLine` for anchoring. */
   line: number;
+  /** Diff side, preferring the first comment's diffSide over the thread's. */
   side: 'LEFT' | 'RIGHT';
   startLine?: number;
   /** File line number from the first comment (PullRequestReviewComment.line). */

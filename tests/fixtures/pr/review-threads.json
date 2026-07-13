@@ -1,0 +1,24 @@
+[
+  {
+    "id": "RT_1",
+    "isResolved": false,
+    "isOutdated": false,
+    "diffSide": "RIGHT",
+    "path": "src/greeting.ts",
+    "line": 3,
+    "originalLine": 3,
+    "startLine": null,
+    "originalStartLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": { "login": "octocat" },
+          "body": "Should this fall back to a generic greeting instead?",
+          "createdAt": "2024-01-01T00:00:00Z",
+          "line": 5,
+          "diffSide": "RIGHT"
+        }
+      ]
+    }
+  }
+]

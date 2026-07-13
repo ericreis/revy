@@ -7,6 +7,9 @@
 //   REVY_FAKE_GH_FAIL  optional failure mode: "auth" | "notfound" - makes the
 //                      fake exit non-zero with the same stderr shape as real gh,
 //                      so error translation can be exercised.
+//   REVY_FAKE_GH_REVIEW_THREADS  optional path to a JSON file containing the
+//                      `reviewThreads.nodes` array returned by the GraphQL
+//                      query. Defaults to an empty array (no existing threads).
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -34,9 +37,10 @@ if (sub === 'pr' && action === 'view') {
 } else if (sub === 'pr' && action === 'diff') {
   process.stdout.write(fs.readFileSync(path.join(dir, 'diff.patch'), 'utf8'));
 } else if (sub === 'api' && args.includes('graphql')) {
-  // Return an empty review threads response (no existing threads).
+  const threadsFile = process.env.REVY_FAKE_GH_REVIEW_THREADS;
+  const nodes = threadsFile ? JSON.parse(fs.readFileSync(threadsFile, 'utf8')) : [];
   process.stdout.write(JSON.stringify({
-    data: { repository: { pullRequest: { reviewThreads: { nodes: [] } } } },
+    data: { repository: { pullRequest: { reviewThreads: { nodes } } } },
   }));
 } else if (sub === 'api' && args.includes('repos') && args.includes('reviews')) {
   // For review creation/submission: respond with a fake review ID.
