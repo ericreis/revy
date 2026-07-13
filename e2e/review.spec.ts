@@ -280,3 +280,28 @@ test('commenting on a context line anchors to the correct line on both sides', a
   );
   expect(thread.anchor).toMatchObject({ path: 'src/greeting.ts', line: 6, side: 'RIGHT' });
 });
+
+test('selecting a line in one file does not highlight the same line number in other files', async ({
+  page,
+}) => {
+  await page.goto(launch.url);
+
+  // src/greeting.ts and README.md both have a removed line 2 (`getChangeKey`
+  // derives keys from type + line number alone, e.g. "D2" for both), so this
+  // pair reproduces the cross-file collision from #29.
+  const greeting = fileSection(page, 'src/greeting.ts');
+  const readme = fileSection(page, 'README.md');
+
+  const greetingLine2 = greeting.locator('tr.diff-line').filter({
+    has: page.locator('td', { hasText: "return 'Hi ' + name;" }),
+  });
+  const greetingGutter = greetingLine2.locator('.diff-gutter').first();
+  await greetingGutter.click();
+  await expect(greetingGutter).toHaveClass(/diff-gutter-selected/);
+
+  const readmeLine2 = readme.locator('tr.diff-line').filter({
+    has: page.locator('td', { hasText: 'A tiny demo project.' }),
+  });
+  const readmeGutter = readmeLine2.locator('.diff-gutter').first();
+  await expect(readmeGutter).not.toHaveClass(/diff-gutter-selected/);
+});
