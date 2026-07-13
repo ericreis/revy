@@ -87,13 +87,14 @@ export function useReview(session: Session): ReviewState {
 
   // Compute the selection set from selStart/selEnd
   const selection = useMemo(() => {
-    if (!selStart) return new Set<string>();
-    if (!selEnd || selStart === selEnd) return new Set([selStart]);
-    const allKeys = files
+    if (!selStart || !selFilePath) return new Set<string>();
+    if (!selEnd || selStart === selEnd) return new Set([`${selFilePath}::${selStart}`]);
+    const fileKeys = files
       .filter((f) => f.path === selFilePath)
       .flatMap((f) => f.file.hunks.flatMap((h) => h.changes.map((c) => getChangeKey(c))))
       .filter(Boolean);
-    return getSelectedChangeKeys(selStart, selEnd, allKeys);
+    const range = getSelectedChangeKeys(selStart, selEnd, fileKeys);
+    return new Set([...range].map((k) => `${selFilePath}::${k}`));
   }, [selStart, selEnd, selFilePath, files]);
 
   // Compute anchor from the last clicked change

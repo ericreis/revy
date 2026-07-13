@@ -121,8 +121,8 @@ export default function FileView({
 
   // selectedChanges filtered to this file
   const fileSelected = useMemo(
-    () => allChangeKeys.filter((k) => selectedChanges.has(k)),
-    [allChangeKeys, selectedChanges],
+    () => allChangeKeys.filter((k) => selectedChanges.has(`${file.path}::${k}`)),
+    [allChangeKeys, selectedChanges, file.path],
   );
 
   const handleGutterClick = (
