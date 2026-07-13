@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { getChangeKey, type ChangeData } from 'react-diff-view';
 import { toDiffFiles, isLargeOrGenerated, type DiffFile } from './diff';
 import type { Session, Thread, Anchor } from './types';
@@ -65,6 +65,10 @@ export interface ReviewState {
   openComposer: (changeKey: string) => void;
   closeComposer: () => void;
   addComment: (anchor: Anchor, text: string) => Promise<void>;
+  countdown: number;
+  manualCooldown: number;
+  refreshing: boolean;
+  handleRefresh: () => void;
 }
 
 /** Owns the review's interaction state so the components stay presentational. */
@@ -84,6 +88,52 @@ export function useReview(session: Session): ReviewState {
   const [composing, setComposing] = useState<string | null>(null);
   const [composerText, setComposerText] = useState('');
   const [nextId, setNextId] = useState(threads.length + 1);
+  const [countdown, setCountdown] = useState(10);
+  const [manualCooldown, setManualCooldown] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshingRef = useRef(false);
+
+  // Countdown tick + manual cooldown decay
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCountdown((prev) => (prev <= 1 ? 10 : prev - 1));
+      setManualCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const doRefresh = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    setCountdown(10);
+    try {
+      const res = await fetch(`/api/session/${session.key}/refresh`, { method: 'POST' });
+      if (res.ok) {
+        const data = (await res.json()) as { added: number; threads: Thread[] };
+        if (data.added > 0) {
+          setThreads(data.threads);
+        }
+      }
+    } catch {
+      // silently retry on next tick
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  }, [session.key]);
+
+  // Auto-refresh every 10s
+  useEffect(() => {
+    const id = setInterval(doRefresh, 10_000);
+    return () => clearInterval(id);
+  }, [doRefresh]);
+
+  const handleRefresh = useCallback(() => {
+    if (manualCooldown > 0 || refreshingRef.current) return;
+    setManualCooldown(5);
+    doRefresh();
+  }, [manualCooldown, doRefresh]);
 
   // Compute the selection set from selStart/selEnd
   const selection = useMemo(() => {
@@ -199,5 +249,6 @@ export function useReview(session: Session): ReviewState {
     selection, selAnchor, selFilePath,
     handleGutterClick, clearSelection,
     threads, composing, composerText, setComposerText, openComposer, closeComposer, addComment,
+    countdown, manualCooldown, refreshing, handleRefresh,
   };
 }

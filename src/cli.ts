@@ -128,7 +128,7 @@ async function main(): Promise<void> {
       kind: 'comment' as const,
       anchor: {
         path: ft.path,
-        line: ft.line,
+        line: ft.fileLine ?? ft.line,
         side: ft.side,
         startLine: ft.startLine,
       },

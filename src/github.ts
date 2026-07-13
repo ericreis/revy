@@ -48,6 +48,7 @@ query($owner: String!, $repo: String!, $pr: Int!) {
               author { login }
               body
               createdAt
+              line
             }
           }
         }
@@ -60,9 +61,13 @@ export interface FetchedThread {
   id: string;
   isResolved: boolean;
   path: string;
+  /** Thread-level diff position (PullRequestReviewThread.line); prefer `fileLine` for anchoring. */
   line: number;
+  /** Diff side, preferring the first comment's diffSide over the thread's. */
   side: 'LEFT' | 'RIGHT';
   startLine?: number;
+  /** File line number from the first comment (PullRequestReviewComment.line). */
+  fileLine: number | null;
   comments: { author: string; body: string; createdAt: string }[];
 }
 
@@ -102,6 +107,7 @@ export async function fetchReviewThreads(ref: PrRef): Promise<FetchedThread[]> {
                     author: { login: string } | null;
                     body: string;
                     createdAt: string;
+                    line: number | null;
                   }>;
                 };
               }>;
@@ -111,19 +117,23 @@ export async function fetchReviewThreads(ref: PrRef): Promise<FetchedThread[]> {
       };
     };
     const nodes = data.data.repository.pullRequest.reviewThreads.nodes;
-    return nodes.map((n) => ({
-      id: n.id,
-      isResolved: n.isResolved,
-      path: n.path,
-      line: n.line,
-      side: (n.diffSide === 'LEFT' ? 'LEFT' : 'RIGHT') as 'LEFT' | 'RIGHT',
-      startLine: n.startLine ?? undefined,
-      comments: n.comments.nodes.map((c) => ({
-        author: c.author?.login ?? 'unknown',
-        body: c.body,
-        createdAt: c.createdAt,
-      })),
-    }));
+    return nodes.map((n) => {
+      const firstComment = n.comments.nodes[0];
+      return {
+        id: n.id,
+        isResolved: n.isResolved,
+        path: n.path,
+        line: n.line,
+        side: (n.diffSide === 'LEFT' ? 'LEFT' : 'RIGHT') as 'LEFT' | 'RIGHT',
+        startLine: n.startLine ?? undefined,
+        fileLine: firstComment?.line ?? null,
+        comments: n.comments.nodes.map((c) => ({
+          author: c.author?.login ?? 'unknown',
+          body: c.body,
+          createdAt: c.createdAt,
+        })),
+      };
+    });
   } catch (err: unknown) {
     const e = err as { stderr?: string; message?: string };
     const stderr = (e.stderr || '').trim();
