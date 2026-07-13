@@ -49,7 +49,6 @@ query($owner: String!, $repo: String!, $pr: Int!) {
               body
               createdAt
               line
-              diffSide
             }
           }
         }
@@ -109,7 +108,6 @@ export async function fetchReviewThreads(ref: PrRef): Promise<FetchedThread[]> {
                     body: string;
                     createdAt: string;
                     line: number | null;
-                    diffSide: string | null;
                   }>;
                 };
               }>;
@@ -126,7 +124,7 @@ export async function fetchReviewThreads(ref: PrRef): Promise<FetchedThread[]> {
         isResolved: n.isResolved,
         path: n.path,
         line: n.line,
-        side: ((firstComment?.diffSide ?? n.diffSide) === 'LEFT' ? 'LEFT' : 'RIGHT') as 'LEFT' | 'RIGHT',
+        side: (n.diffSide === 'LEFT' ? 'LEFT' : 'RIGHT') as 'LEFT' | 'RIGHT',
         startLine: n.startLine ?? undefined,
         fileLine: firstComment?.line ?? null,
         comments: n.comments.nodes.map((c) => ({
