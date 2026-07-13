@@ -1,5 +1,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
 import type { PrRef } from './pr.js';
 
 const run = promisify(execFile);
@@ -138,49 +141,35 @@ export interface ReviewComment {
 }
 
 /**
- * Submit a batch of draft comments as a single PENDING review via `gh api`.
+ * Submit a batch of draft comments as a single review via `gh api`.
+ * Creates and immediately submits the review with all comments inline
+ * using a single POST request (avoiding multi-step issues like stale
+ * pending reviews and the 404 on the per-review comment endpoint).
  */
 export async function submitReview(ref: PrRef, headSha: string, comments: ReviewComment[]): Promise<void> {
   const repo = `${ref.owner}/${ref.repo}`;
   const num = String(ref.number);
   try {
-    // 1. Create a PENDING review
-    const reviewRes = await run(
-      'gh',
-      [
-        'api', '-X', 'POST',
-        `repos/${repo}/pulls/${num}/reviews`,
-        '-f', 'event=PENDING',
-        '--jq', '.id',
-      ],
-    );
-    const reviewId = reviewRes.stdout.trim();
+    const body = JSON.stringify({
+      event: 'COMMENT',
+      body: 'Review via revy',
+      commit_id: headSha,
+      comments: comments.map((c) => ({
+        body: c.body,
+        path: c.path,
+        line: c.line,
+        side: c.side,
+        ...(c.startLine !== undefined ? { start_line: c.startLine, start_side: c.startSide ?? c.side } : {}),
+      })),
+    });
 
-    // 2. Add each comment
-    for (const c of comments) {
-      const args: string[] = [
-        'api', '-X', 'POST',
-        `repos/${repo}/pulls/${num}/reviews/${reviewId}/comments`,
-        '-f', `body=${c.body}`,
-        '-f', `commit_id=${headSha}`,
-        '-f', `path=${c.path}`,
-        '-F', `line=${c.line}`,
-        '-f', `side=${c.side}`,
-      ];
-      if (c.startLine !== undefined) {
-        args.push('-F', `start_line=${c.startLine}`);
-        args.push('-f', `start_side=${c.startSide ?? c.side}`);
-      }
-      await run('gh', args);
+    const tmp = path.join(os.tmpdir(), `revy-review-${Date.now()}.json`);
+    await fs.writeFile(tmp, body, 'utf8');
+    try {
+      await run('gh', ['api', '-X', 'POST', `repos/${repo}/pulls/${num}/reviews`, '--input', tmp]);
+    } finally {
+      await fs.unlink(tmp).catch(() => {});
     }
-
-    // 3. Submit the review as COMMENT
-    await run('gh', [
-      'api', '-X', 'POST',
-      `repos/${repo}/pulls/${num}/reviews/${reviewId}/events`,
-      '-f', 'event=COMMENT',
-      '-f', 'body=Review via revy',
-    ]);
   } catch (err: unknown) {
     const e = err as { stderr?: string; message?: string };
     const stderr = (e.stderr || '').trim();

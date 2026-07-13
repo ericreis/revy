@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import ReviewHeader from './ReviewHeader';
 import Sidebar from './Sidebar';
 import FileList from './FileList';
@@ -11,9 +12,30 @@ export default function Review({ session }: { session: Session }) {
     threads, composing, composerText, setComposerText, openComposer, closeComposer, addComment,
   } = useReview(session);
 
+  const [submitting, setSubmitting] = useState(false);
+  const draftCount = useMemo(() => threads.filter((t) => t.kind === 'comment' && t.status === 'draft').length, [threads]);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/session/${session.key}/submit`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Submit failed' }));
+        alert(`Submit failed: ${err.error}`);
+      } else {
+        // Reload the page to show updated thread statuses
+        window.location.reload();
+      }
+    } catch {
+      alert('Submit failed: network error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="app">
-      <ReviewHeader session={session} />
+      <ReviewHeader session={session} draftCount={draftCount} submitting={submitting} onSubmit={handleSubmit} />
       <div className="layout">
         <Sidebar
           files={files}

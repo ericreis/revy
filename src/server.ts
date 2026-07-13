@@ -2,8 +2,10 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { readSession, writeSession, addThread, nextThreadId } from './session.js';
+import { readSession, writeSession, addThread, nextThreadId, updateThread } from './session.js';
 import type { Thread } from './session.js';
+import { parsePrArg } from './pr.js';
+import { submitReview } from './github.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 // dist/serverEntry.js -> ../web/dist ; src/server.ts (via tsx) -> ../web/dist
@@ -58,6 +60,51 @@ export function buildApp(onActivity?: () => void): express.Express {
       addThread(session, thread);
       await writeSession(session);
       res.status(201).json(thread);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/api/session/:key/submit', async (req, res, next) => {
+    try {
+      const session = await readSession(req.params.key);
+      if (!session) {
+        res.status(404).json({ error: 'session not found' });
+        return;
+      }
+
+      const draftComments = session.threads.filter(
+        (t) => t.kind === 'comment' && t.status === 'draft',
+      );
+      if (draftComments.length === 0) {
+        res.status(400).json({ error: 'No draft comments to submit' });
+        return;
+      }
+
+      try {
+        const ref = parsePrArg(session.pr);
+        const comments = draftComments.map((t) => ({
+          path: t.anchor.path,
+          body: t.messages.map((m) => m.text).join('\n\n'),
+          line: t.anchor.line,
+          side: t.anchor.side,
+          startLine: t.anchor.startLine,
+          startSide: t.anchor.startLine ? t.anchor.side : undefined,
+        }));
+
+        await submitReview(ref, session.headSha, comments);
+
+        for (const t of draftComments) {
+          updateThread(session, t.id, { status: 'synced' });
+        }
+        await writeSession(session);
+
+        res.json({ submitted: draftComments.length });
+      } catch (submitErr) {
+        res.status(502).json({
+          error: submitErr instanceof Error ? submitErr.message : 'Failed to submit review',
+        });
+      }
     } catch (err) {
       next(err);
     }
