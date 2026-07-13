@@ -381,3 +381,211 @@ body {
 .diff .token.namespace {
   opacity: 0.8;
 }
+
+/* Selected line highlighting */
+.diff-gutter-selected {
+  background: rgba(56, 139, 253, 0.18) !important;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.diff-code-selected {
+  background: rgba(56, 139, 253, 0.08) !important;
+}
+
+/* Gutter content (line number + + button) */
+.gutter-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  position: relative;
+}
+.gutter-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  z-index: 10;
+}
+.gutter-plus:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Thread widget (comment composer + thread display) */
+.thread-widget {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0.5rem 0.75rem;
+}
+.thread-composer {
+  padding: 0;
+}
+.thread-composer-body {
+  padding: 0.75rem;
+}
+.thread-textarea {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  font-family: inherit;
+  font-size: 0.82rem;
+  resize: vertical;
+  min-height: 60px;
+}
+.thread-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.15);
+}
+.thread-composer-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  align-items: center;
+}
+
+/* Thread message (GitHub-comment style) */
+.thread-message {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+.thread-message + .thread-message {
+  border-top: 1px solid var(--border);
+}
+.thread-avatar {
+  flex: none;
+}
+.thread-avatar-inner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+.thread-body {
+  flex: 1;
+  min-width: 0;
+}
+.thread-meta {
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.2rem;
+}
+.thread-author {
+  font-weight: 600;
+  color: var(--text);
+}
+.thread-badge-agent {
+  font-size: 0.6rem;
+  background: rgba(56, 139, 253, 0.15);
+  color: var(--accent);
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+  font-weight: 600;
+}
+.thread-time {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.thread-text {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.thread-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  padding-top: 0.3rem;
+}
+.badge-draft {
+  background: rgba(210, 153, 34, 0.15);
+  color: var(--mod);
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+  font-weight: 600;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+}
+.badge-hint {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.badge-synced {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--add);
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+  font-weight: 600;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+}
+
+/* Shared button pattern to match the existing toolbar */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  font-size: 0.78rem;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.4;
+  gap: 0.3rem;
+  background: var(--surface-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.btn:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+.btn-primary {
+  background: rgba(56, 139, 253, 0.2);
+  color: var(--accent);
+  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+}
+.btn-primary:hover {
+  background: rgba(56, 139, 253, 0.35);
+}
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.btn-ghost:hover {
+  background: var(--surface-2);
+}
+.btn-sm {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.5rem;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

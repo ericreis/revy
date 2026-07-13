@@ -2,7 +2,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { readSession } from './session.js';
+import { readSession, writeSession, addThread, nextThreadId } from './session.js';
+import type { Thread } from './session.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 // dist/serverEntry.js -> ../web/dist ; src/server.ts (via tsx) -> ../web/dist
@@ -10,6 +11,8 @@ const WEB_DIST = path.resolve(dirname, '..', 'web', 'dist');
 
 export function buildApp(onActivity?: () => void): express.Express {
   const app = express();
+
+  app.use(express.json());
 
   app.use((_req, _res, next) => {
     onActivity?.();
@@ -28,6 +31,33 @@ export function buildApp(onActivity?: () => void): express.Express {
         return;
       }
       res.json(session);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/api/session/:key/comments', async (req, res, next) => {
+    try {
+      const session = await readSession(req.params.key);
+      if (!session) {
+        res.status(404).json({ error: 'session not found' });
+        return;
+      }
+      const { anchor, text } = req.body as { anchor: Thread['anchor']; text: string };
+      if (!anchor || !text) {
+        res.status(400).json({ error: 'Missing anchor or text' });
+        return;
+      }
+      const thread: Thread = {
+        id: nextThreadId(session),
+        kind: 'comment',
+        anchor,
+        status: 'draft',
+        messages: [{ role: 'user', text, at: new Date().toISOString() }],
+      };
+      addThread(session, thread);
+      await writeSession(session);
+      res.status(201).json(thread);
     } catch (err) {
       next(err);
     }

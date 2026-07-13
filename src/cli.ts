@@ -5,8 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import open from 'open';
 import { parsePrArg } from './pr.js';
-import { fetchPr } from './github.js';
-import { readSession, writeSession, stateDir, type Session } from './session.js';
+import { fetchPr, fetchReviewThreads, submitReview } from './github.js';
+import { readSession, writeSession, stateDir, updateThread, type Session } from './session.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,8 +49,61 @@ async function ensureServer(): Promise<number> {
   throw new Error('The revy server did not start in time.');
 }
 
+async function cmdSubmit(): Promise<void> {
+  const args = process.argv.slice(2).filter((a) => a !== 'submit');
+  const key = args[0];
+  if (!key) {
+    process.stderr.write('Usage: revy submit <session-key>\n');
+    process.exit(1);
+  }
+  const session = await readSession(key);
+  if (!session) {
+    process.stderr.write(`Session "${key}" not found.\n`);
+    process.exit(1);
+  }
+
+  const draftComments = session.threads.filter(
+    (t) => t.kind === 'comment' && t.status === 'draft',
+  );
+  if (draftComments.length === 0) {
+    process.stdout.write('No draft comments to submit.\n');
+    return;
+  }
+
+  const ref = parsePrArg(session.pr);
+
+  process.stdout.write(`Submitting ${draftComments.length} comment(s) to ${session.pr} ...\n`);
+
+  const comments = draftComments.map((t) => ({
+    path: t.anchor.path,
+    body: t.messages.map((m) => m.text).join('\n\n'),
+    line: t.anchor.line,
+    side: t.anchor.side,
+    startLine: t.anchor.startLine,
+    startSide: t.anchor.startLine ? t.anchor.side : undefined,
+  }));
+
+  await submitReview(ref, session.headSha, comments);
+
+  // Mark submitted threads as synced
+  for (const t of draftComments) {
+    updateThread(session, t.id, { status: 'synced' });
+  }
+  await writeSession(session);
+
+  process.stdout.write('Review submitted to GitHub.\n');
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  const subcommand = args[0];
+
+  if (subcommand === 'submit') {
+    await cmdSubmit();
+    return;
+  }
+
+  // Legacy: `revy <pr>` - open a PR for review
   const noOpen = args.includes('--no-open') || process.env.REVY_NO_OPEN === '1';
   const positional = args.filter((a) => !a.startsWith('-'));
   const arg = positional[0];
@@ -65,6 +118,41 @@ async function main(): Promise<void> {
 
   const existing = await readSession(ref.key);
   const now = new Date().toISOString();
+
+  // Fetch existing GitHub review threads and merge them in
+  let ghThreads: import('./session.js').Thread[] = [];
+  try {
+    const fetched = await fetchReviewThreads(ref);
+    ghThreads = fetched.map((ft) => ({
+      id: `gh_${ft.id}`,
+      kind: 'comment' as const,
+      anchor: {
+        path: ft.path,
+        line: ft.line,
+        side: ft.side,
+        startLine: ft.startLine,
+      },
+      status: ft.isResolved ? ('resolved' as const) : ('synced' as const),
+      githubThreadId: ft.id,
+      messages: ft.comments.map((c) => ({
+        role: 'user' as const,
+        text: c.body,
+        at: c.createdAt,
+      })),
+    }));
+  } catch (_err) {
+    // Non-fatal: GitHub threads are best-effort
+  }
+
+  // Merge: keep existing local threads, add any GH threads we don't already have
+  const existingGhIds = new Set(
+    (existing?.threads ?? []).filter((t) => t.githubThreadId).map((t) => t.githubThreadId),
+  );
+  const mergedThreads = [
+    ...(existing?.threads ?? []),
+    ...ghThreads.filter((t) => !existingGhIds.has(t.githubThreadId)),
+  ];
+
   const session: Session = {
     key: ref.key,
     pr: ref.slug,
@@ -83,9 +171,8 @@ async function main(): Promise<void> {
     },
     rawDiff,
     status: 'open',
-    // Preserve local review state across relaunches of the same PR.
     reviewOrder: existing?.reviewOrder ?? [],
-    threads: existing?.threads ?? [],
+    threads: mergedThreads,
     pending: existing?.pending ?? [],
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
