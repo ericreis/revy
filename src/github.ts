@@ -124,7 +124,7 @@ export async function fetchReviewThreads(ref: PrRef): Promise<FetchedThread[]> {
         isResolved: n.isResolved,
         path: n.path,
         line: n.line,
-        side: (n.diffSide === 'LEFT' ? 'LEFT' : 'RIGHT') as 'LEFT' | 'RIGHT',
+        side: ((firstComment?.diffSide ?? n.diffSide) === 'LEFT' ? 'LEFT' : 'RIGHT') as 'LEFT' | 'RIGHT',
         startLine: n.startLine ?? undefined,
         fileLine: firstComment?.line ?? null,
         comments: n.comments.nodes.map((c) => ({
