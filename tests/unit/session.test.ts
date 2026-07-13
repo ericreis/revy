@@ -7,7 +7,9 @@ import {
   sessionFile,
   sessionsDir,
   stateDir,
+  nextThreadId,
   type Session,
+  type Thread,
 } from '../../src/session.js';
 import { makeStateDir } from '../helpers/harness.js';
 
@@ -69,5 +71,40 @@ describe('session store', () => {
     await writeSession(sampleSession({ title: 'first' }));
     await writeSession(sampleSession({ title: 'second' }));
     expect((await readSession('deadbeefdeadbeef'))?.title).toBe('second');
+  });
+});
+
+function sampleThread(id: string): Thread {
+  return {
+    id,
+    kind: 'comment',
+    anchor: { path: 'src/greeting.ts', line: 1, side: 'RIGHT' },
+    status: 'draft',
+    messages: [],
+  };
+}
+
+describe('nextThreadId', () => {
+  it('starts at t_01 for a session with no threads', () => {
+    expect(nextThreadId(sampleSession())).toBe('t_01');
+  });
+
+  it('continues from the highest existing thread id instead of a shared counter', () => {
+    // A fresh process (e.g. the CLI's `submit` command, or a server restart)
+    // must not repeat an id already used by a thread loaded from disk.
+    const session = sampleSession({ threads: [sampleThread('t_01'), sampleThread('t_02')] });
+    expect(nextThreadId(session)).toBe('t_03');
+  });
+
+  it('ignores non-t_ ids (e.g. gh_-prefixed GitHub threads) when computing the next id', () => {
+    const session = sampleSession({ threads: [sampleThread('gh_9001'), sampleThread('t_01')] });
+    expect(nextThreadId(session)).toBe('t_02');
+  });
+
+  it('gives two sessions with different histories independent, non-colliding ids', () => {
+    const busy = sampleSession({ key: 'busy', threads: [sampleThread('t_05')] });
+    const fresh = sampleSession({ key: 'fresh', threads: [] });
+    expect(nextThreadId(busy)).toBe('t_06');
+    expect(nextThreadId(fresh)).toBe('t_01');
   });
 });

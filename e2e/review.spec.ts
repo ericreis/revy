@@ -249,3 +249,34 @@ test('clicking the + button opens a comment composer, submitting adds a thread w
   // The draft badge should be visible
   await expect(greeting.locator('.badge-draft')).toBeVisible();
 });
+
+test('commenting on a context line anchors to the correct line on both sides', async ({ page }) => {
+  await page.goto(launch.url);
+
+  const greeting = fileSection(page, 'src/greeting.ts');
+
+  // The hunk's only unchanged (context) line is the closing brace `}` at old
+  // line 3 / new line 6 - the two diverge because 5 lines were added above it.
+  // A comment placed here must anchor to new line 6, not old line 3.
+  const closingLine = greeting.locator('tr.diff-line').filter({
+    has: page.locator('td', { hasText: /^\}$/ }),
+  });
+  const newSideGutter = closingLine.locator('.diff-gutter').nth(1);
+  await newSideGutter.click();
+  await expect(newSideGutter).toHaveClass(/diff-gutter-selected/);
+
+  await closingLine.locator('.gutter-plus').click();
+  const textarea = greeting.locator('.thread-textarea');
+  await expect(textarea).toBeVisible();
+  await textarea.fill('Anchor check for the context line');
+  await greeting.getByRole('button', { name: 'Add review comment' }).click();
+  await expect(greeting.locator('.thread-text', { hasText: 'Anchor check for the context line' })).toBeVisible();
+
+  const res = await fetch(`http://127.0.0.1:${launch.port}/api/session/${launch.key}`);
+  const session = await res.json();
+  const thread = session.threads.find(
+    (t: { messages: { text: string }[] }) =>
+      t.messages.some((m) => m.text === 'Anchor check for the context line'),
+  );
+  expect(thread.anchor).toMatchObject({ path: 'src/greeting.ts', line: 6, side: 'RIGHT' });
+});
