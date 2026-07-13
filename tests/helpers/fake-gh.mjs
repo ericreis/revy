@@ -33,6 +33,18 @@ if (sub === 'pr' && action === 'view') {
   process.stdout.write(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'));
 } else if (sub === 'pr' && action === 'diff') {
   process.stdout.write(fs.readFileSync(path.join(dir, 'diff.patch'), 'utf8'));
+} else if (sub === 'api' && args.includes('graphql')) {
+  // Return an empty review threads response (no existing threads).
+  process.stdout.write(JSON.stringify({
+    data: { repository: { pullRequest: { reviewThreads: { nodes: [] } } } },
+  }));
+} else if (sub === 'api' && args.includes('repos') && args.includes('reviews')) {
+  // For review creation/submission: respond with a fake review ID.
+  if (args.includes('events')) {
+    process.stdout.write(JSON.stringify({}));
+  } else {
+    process.stdout.write('42');
+  }
 } else {
   process.stderr.write(`fake-gh: unhandled invocation: gh ${args.join(' ')}\n`);
   process.exit(2);

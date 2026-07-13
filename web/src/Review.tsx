@@ -5,8 +5,11 @@ import { useReview } from './useReview';
 import type { Session } from './types';
 
 export default function Review({ session }: { session: Session }) {
-  const { files, collapsed, activeId, wrap, viewType, toggle, expandAll, collapseAll, toggleWrap, toggleViewType, jump } =
-    useReview(session);
+  const {
+    files, collapsed, activeId, wrap, viewType, toggle, expandAll, collapseAll, toggleWrap, toggleViewType, jump,
+    selection, selAnchor, handleGutterClick, clearSelection,
+    threads, composing, composerText, setComposerText, openComposer, closeComposer, addComment,
+  } = useReview(session);
 
   return (
     <div className="app">
@@ -24,7 +27,23 @@ export default function Review({ session }: { session: Session }) {
           onToggleViewType={toggleViewType}
         />
         <main className="content">
-          <FileList files={files} collapsed={collapsed} wrap={wrap} viewType={viewType} onToggle={toggle} />
+          <FileList
+            files={files}
+            collapsed={collapsed}
+            wrap={wrap}
+            viewType={viewType}
+            onToggle={toggle}
+            selectedChanges={selection}
+            selAnchor={selAnchor}
+            threads={threads}
+            composing={composing}
+            composerText={composerText}
+            onComposerChange={setComposerText}
+            onGutterClick={handleGutterClick}
+            onOpenComposer={openComposer}
+            onCloseComposer={closeComposer}
+            onAddComment={addComment}
+          />
         </main>
       </div>
     </div>

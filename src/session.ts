@@ -59,3 +59,21 @@ export async function writeSession(session: Session): Promise<void> {
   await fs.mkdir(sessionsDir(), { recursive: true });
   await fs.writeFile(sessionFile(session.key), `${JSON.stringify(session, null, 2)}\n`);
 }
+
+let _nextId = 1;
+export function nextThreadId(): string {
+  return `t_${String(_nextId++).padStart(2, '0')}`;
+}
+
+export function addThread(session: Session, thread: Thread): void {
+  session.threads.push(thread);
+  session.updatedAt = new Date().toISOString();
+}
+
+export function updateThread(session: Session, id: string, updates: Partial<Thread>): void {
+  const i = session.threads.findIndex((t) => t.id === id);
+  if (i !== -1) {
+    session.threads[i] = { ...session.threads[i], ...updates };
+    session.updatedAt = new Date().toISOString();
+  }
+}

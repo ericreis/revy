@@ -205,3 +205,47 @@ test('an unknown session key surfaces a friendly error', async ({ page }) => {
   await page.goto(`http://127.0.0.1:${launch.port}/session/deadbeefdeadbeef`);
   await expect(page.locator('.msg-error')).toContainText('session not found');
 });
+
+test('clicking a gutter line highlights it and shows a + button', async ({ page }) => {
+  await page.goto(launch.url);
+
+  // greeting.ts is expanded - find its diff gutters
+  const greeting = fileSection(page, 'src/greeting.ts');
+  await expect(greeting).toBeVisible();
+
+  // Click the first gutter cell (line number) in the unified diff
+  const firstGutter = greeting.locator('.diff-gutter').first();
+  await firstGutter.click();
+
+  // The gutter should now have the 'selected' class
+  await expect(firstGutter).toHaveClass(/diff-gutter-selected/);
+
+  // The + button should appear near the selected gutter
+  const plusBtn = greeting.locator('.gutter-plus');
+  await expect(plusBtn).toBeVisible();
+});
+
+test('clicking the + button opens a comment composer, submitting adds a thread widget', async ({
+  page,
+}) => {
+  await page.goto(launch.url);
+
+  const greeting = fileSection(page, 'src/greeting.ts');
+  await greeting.locator('.diff-gutter').first().click();
+  await greeting.locator('.gutter-plus').first().click();
+
+  // The composer textarea should appear
+  const textarea = greeting.locator('.thread-textarea');
+  await expect(textarea).toBeVisible();
+
+  // Type and submit
+  await textarea.fill('Nice work on this function!');
+  await greeting.getByRole('button', { name: 'Add review comment' }).click();
+
+  // The thread widget should appear showing our comment
+  await expect(greeting.locator('.thread-widget')).toBeVisible();
+  await expect(greeting.locator('.thread-text')).toContainText('Nice work on this function!');
+
+  // The draft badge should be visible
+  await expect(greeting.locator('.badge-draft')).toBeVisible();
+});
