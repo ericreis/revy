@@ -207,8 +207,8 @@ export function useReview(session: Session): ReviewState {
       if (res.ok) {
         const saved = (await res.json()) as Thread;
         setThreads((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = saved;
+          const next = prev.filter((t) => t.id !== newThread.id && t.id !== saved.id);
+          next.push(saved);
           return next;
         });
       }
