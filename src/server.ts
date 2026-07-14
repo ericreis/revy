@@ -118,23 +118,31 @@ export function buildApp(onActivity?: () => void): express.Express {
         const key = `${st.anchor.path}:${st.anchor.line}:${st.anchor.side}`;
         const list = ghByAnchor.get(key);
         if (list && list.length > 0) {
-          st.githubThreadId = list.shift()!.githubThreadId;
+          const match = list.shift()!;
+          st.githubThreadId = match.githubThreadId;
+          st.messages = match.messages;
+          st.status = match.status;
           consumedAnchors.add(key);
         }
       }
 
       // 4. Add remaining unmatched GitHub threads as new entries.
-      //    Skip anchors consumed by a local match, and skip any ghThread
-      //    whose githubThreadId already exists in the session (stale dedup
-      //    leftover from a prior refresh that created a gh_0X copy).
-      const localIds = new Set(session.threads.map((t) => t.githubThreadId).filter(Boolean));
+      //    Skip anchors consumed by a local match. If a ghThread's
+      //    githubThreadId already exists in the session, update the
+      //    existing entry (messages, status) instead of adding a duplicate.
+      const localById = new Map(session.threads.filter((t) => t.githubThreadId).map((t) => [t.githubThreadId, t]));
       let added = 0;
       for (const [key, list] of ghByAnchor) {
         if (consumedAnchors.has(key)) continue;
         for (const t of list) {
-          if (t.githubThreadId && localIds.has(t.githubThreadId)) continue;
-          addThread(session, t);
-          added++;
+          const existing = t.githubThreadId ? localById.get(t.githubThreadId) : undefined;
+          if (existing) {
+            existing.messages = t.messages;
+            existing.status = t.status;
+          } else {
+            addThread(session, t);
+            added++;
+          }
         }
       }
       await writeSession(session);
