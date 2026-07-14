@@ -206,7 +206,11 @@ export function useReview(session: Session): ReviewState {
       });
       if (res.ok) {
         const saved = (await res.json()) as Thread;
-        setThreads((prev) => prev.map((t) => (t.id === newThread.id ? saved : t)));
+        setThreads((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = saved;
+          return next;
+        });
       }
     } catch {
       // Keep local draft even if API call fails
