@@ -67,45 +67,70 @@ export function buildApp(onActivity?: () => void): express.Express {
       }));
 
       const ghIds = new Set(ghThreads.map((t) => t.githubThreadId));
-      const ghAnchors = new Map<string, Thread>();
+
+      // Build a multimap from anchor key to all matching ghThreads.
+      const ghByAnchor = new Map<string, Thread[]>();
       for (const t of ghThreads) {
         const key = `${t.anchor.path}:${t.anchor.line}:${t.anchor.side}`;
-        if (!ghAnchors.has(key)) ghAnchors.set(key, t);
+        const list = ghByAnchor.get(key);
+        if (list) list.push(t);
+        else ghByAnchor.set(key, [t]);
       }
 
-      // Remove stale threads: those with a githubThreadId no longer on GitHub,
-      // or synced threads whose anchor has no match on GitHub.
-      const staleIds = new Set(
-        session.threads.filter((t) => {
-          if (t.githubThreadId && !ghIds.has(t.githubThreadId)) return true;
-          if (!t.githubThreadId && t.status === 'synced') {
-            const key = `${t.anchor.path}:${t.anchor.line}:${t.anchor.side}`;
-            if (!ghAnchors.has(key)) return true;
-          }
-          return false;
-        }).map((t) => t.id),
-      );
-      if (staleIds.size > 0) {
-        session.threads = session.threads.filter((t) => !staleIds.has(t.id));
+      // 1. Deduplicate session threads by githubThreadId.
+      //    If multiple session threads share the same githubThreadId,
+      //    keep the first (prefer t_0X over gh_0X) and remove the rest.
+      {
+        const seen = new Set<string>();
+        const deduped: typeof session.threads = [];
+        for (const t of session.threads) {
+          if (t.githubThreadId && seen.has(t.githubThreadId)) continue;
+          if (t.githubThreadId) seen.add(t.githubThreadId);
+          deduped.push(t);
+        }
+        session.threads = deduped;
       }
 
-      // Assign githubThreadId to existing synced threads that match a GitHub thread by anchor,
-      // and remove the matching ghThread entry so we don't create a duplicate.
-      for (const st of session.threads) {
-        if (st.githubThreadId || st.status !== 'synced') continue;
-        const key = `${st.anchor.path}:${st.anchor.line}:${st.anchor.side}`;
-        const match = ghAnchors.get(key);
-        if (match) {
-          st.githubThreadId = match.githubThreadId;
-          ghAnchors.delete(key);
+      // 2. Remove stale threads: githubThreadId no longer on GitHub,
+      //    or synced threads whose anchor has no match on GitHub.
+      {
+        const staleIds = new Set(
+          session.threads.filter((t) => {
+            if (t.githubThreadId && !ghIds.has(t.githubThreadId)) return true;
+            if (!t.githubThreadId && t.status === 'synced') {
+              const key = `${t.anchor.path}:${t.anchor.line}:${t.anchor.side}`;
+              if (!ghByAnchor.has(key)) return true;
+            }
+            return false;
+          }).map((t) => t.id),
+        );
+        if (staleIds.size > 0) {
+          session.threads = session.threads.filter((t) => !staleIds.has(t.id));
         }
       }
 
-      // Add remaining unmatched GitHub threads as new entries.
+      // 3. Assign githubThreadId to existing synced threads without one.
+      const consumedAnchors = new Set<string>();
+      for (const st of session.threads) {
+        if (st.githubThreadId || st.status !== 'synced') continue;
+        const key = `${st.anchor.path}:${st.anchor.line}:${st.anchor.side}`;
+        const list = ghByAnchor.get(key);
+        if (list && list.length > 0) {
+          st.githubThreadId = list.shift()!.githubThreadId;
+          consumedAnchors.add(key);
+        }
+      }
+
+      // 4. Add remaining unmatched GitHub threads as new entries.
+      //    Skip anchors that were consumed (already matched to local threads)
+      //    to prevent creating duplicate gh_0X entries.
       let added = 0;
-      for (const t of ghAnchors.values()) {
-        addThread(session, t);
-        added++;
+      for (const [key, list] of ghByAnchor) {
+        if (consumedAnchors.has(key)) continue;
+        for (const t of list) {
+          addThread(session, t);
+          added++;
+        }
       }
       await writeSession(session);
 
