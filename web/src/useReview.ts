@@ -111,9 +111,7 @@ export function useReview(session: Session): ReviewState {
       const res = await fetch(`/api/session/${session.key}/refresh`, { method: 'POST' });
       if (res.ok) {
         const data = (await res.json()) as { added: number; threads: Thread[] };
-        if (data.added > 0) {
-          setThreads(data.threads);
-        }
+        setThreads(data.threads);
       }
     } catch {
       // silently retry on next tick

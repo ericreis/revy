@@ -66,6 +66,14 @@ export function buildApp(onActivity?: () => void): express.Express {
         })),
       }));
 
+      const ghIds = new Set(ghThreads.map((t) => t.githubThreadId));
+      const staleIds = new Set(
+        session.threads.filter((t) => t.githubThreadId && !ghIds.has(t.githubThreadId)).map((t) => t.id),
+      );
+      if (staleIds.size > 0) {
+        session.threads = session.threads.filter((t) => !staleIds.has(t.id));
+      }
+
       const existingGhIds = new Set(
         session.threads.filter((t) => t.githubThreadId).map((t) => t.githubThreadId),
       );
