@@ -112,7 +112,6 @@ export function buildApp(onActivity?: () => void): express.Express {
       }
 
       // 3. Assign githubThreadId to existing synced threads without one.
-      const consumedAnchors = new Set<string>();
       for (const st of session.threads) {
         if (st.githubThreadId || st.status !== 'synced') continue;
         const key = `${st.anchor.path}:${st.anchor.line}:${st.anchor.side}`;
@@ -122,18 +121,16 @@ export function buildApp(onActivity?: () => void): express.Express {
           st.githubThreadId = match.githubThreadId;
           st.messages = match.messages;
           st.status = match.status;
-          consumedAnchors.add(key);
         }
       }
 
       // 4. Add remaining unmatched GitHub threads as new entries.
-      //    Skip anchors consumed by a local match. If a ghThread's
-      //    githubThreadId already exists in the session, update the
-      //    existing entry (messages, status) instead of adding a duplicate.
+      //    If a ghThread's githubThreadId already exists in the session,
+      //    update the existing entry (messages, status) instead of adding
+      //    a duplicate.
       const localById = new Map(session.threads.filter((t) => t.githubThreadId).map((t) => [t.githubThreadId, t]));
       let added = 0;
-      for (const [key, list] of ghByAnchor) {
-        if (consumedAnchors.has(key)) continue;
+      for (const [, list] of ghByAnchor) {
         for (const t of list) {
           const existing = t.githubThreadId ? localById.get(t.githubThreadId) : undefined;
           if (existing) {
