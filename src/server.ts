@@ -78,7 +78,7 @@ export function buildApp(onActivity?: () => void): express.Express {
       }
 
       // 1. Strip all gh_0X copies left by prior refreshes. They'll be
-      //    re-created in step 4 from the fresh ghThreads if needed.
+      //    re-created in step 5 from the fresh ghThreads if needed.
       session.threads = session.threads.filter((t) => !t.id.startsWith('gh_'));
 
       // 2. Deduplicate session threads by githubThreadId.
@@ -111,7 +111,7 @@ export function buildApp(onActivity?: () => void): express.Express {
         }
       }
 
-      // 3. Assign githubThreadId to existing synced threads without one.
+      // 4. Assign githubThreadId to existing synced threads without one.
       for (const st of session.threads) {
         if (st.githubThreadId || st.status !== 'synced') continue;
         const key = `${st.anchor.path}:${st.anchor.line}:${st.anchor.side}`;
@@ -124,7 +124,7 @@ export function buildApp(onActivity?: () => void): express.Express {
         }
       }
 
-      // 4. Add remaining unmatched GitHub threads as new entries.
+      // 5. Add remaining unmatched GitHub threads as new entries.
       //    If a ghThread's githubThreadId already exists in the session,
       //    update the existing entry (messages, status) instead of adding
       //    a duplicate.
