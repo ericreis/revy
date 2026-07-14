@@ -77,9 +77,11 @@ export function buildApp(onActivity?: () => void): express.Express {
         else ghByAnchor.set(key, [t]);
       }
 
-      // 1. Deduplicate session threads by githubThreadId.
-      //    If multiple session threads share the same githubThreadId,
-      //    keep the first (prefer t_0X over gh_0X) and remove the rest.
+      // 1. Strip all gh_0X copies left by prior refreshes. They'll be
+      //    re-created in step 4 from the fresh ghThreads if needed.
+      session.threads = session.threads.filter((t) => !t.id.startsWith('gh_'));
+
+      // 2. Deduplicate session threads by githubThreadId.
       {
         const seen = new Set<string>();
         const deduped: typeof session.threads = [];
@@ -91,7 +93,7 @@ export function buildApp(onActivity?: () => void): express.Express {
         session.threads = deduped;
       }
 
-      // 2. Remove stale threads: githubThreadId no longer on GitHub,
+      // 3. Remove stale threads: githubThreadId no longer on GitHub,
       //    or synced threads whose anchor has no match on GitHub.
       {
         const staleIds = new Set(
@@ -122,12 +124,15 @@ export function buildApp(onActivity?: () => void): express.Express {
       }
 
       // 4. Add remaining unmatched GitHub threads as new entries.
-      //    Skip anchors that were consumed (already matched to local threads)
-      //    to prevent creating duplicate gh_0X entries.
+      //    Skip anchors consumed by a local match, and skip any ghThread
+      //    whose githubThreadId already exists in the session (stale dedup
+      //    leftover from a prior refresh that created a gh_0X copy).
+      const localIds = new Set(session.threads.map((t) => t.githubThreadId).filter(Boolean));
       let added = 0;
       for (const [key, list] of ghByAnchor) {
         if (consumedAnchors.has(key)) continue;
         for (const t of list) {
+          if (t.githubThreadId && localIds.has(t.githubThreadId)) continue;
           addThread(session, t);
           added++;
         }
