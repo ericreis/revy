@@ -250,6 +250,36 @@ test('clicking the + button opens a comment composer, submitting adds a thread w
   await expect(greeting.locator('.badge-draft')).toBeVisible();
 });
 
+test('opening a new thread on a line that already has a thread shows both, composer alongside', async ({
+  page,
+}) => {
+  await page.goto(launch.url);
+
+  const greeting = fileSection(page, 'src/greeting.ts');
+  const gutter = greeting.locator('.diff-gutter').first();
+
+  // First thread on this line.
+  await gutter.click();
+  await greeting.locator('.gutter-plus').first().click();
+  await greeting.locator('.thread-textarea').fill('First comment on this line');
+  await greeting.getByRole('button', { name: 'Add review comment' }).click();
+  await expect(greeting.locator('.thread-text', { hasText: 'First comment on this line' })).toBeVisible();
+
+  // Open a second composer on the same line - the existing thread must stay
+  // visible and the composer must render alongside it, not replace it (#36).
+  await gutter.click();
+  await greeting.locator('.gutter-plus').first().click();
+  await expect(greeting.locator('.thread-text', { hasText: 'First comment on this line' })).toBeVisible();
+  const textarea = greeting.locator('.thread-textarea');
+  await expect(textarea).toBeVisible();
+  await textarea.fill('Second comment on the same line');
+  await greeting.getByRole('button', { name: 'Add review comment' }).click();
+
+  // Both threads must now render on the same line.
+  await expect(greeting.locator('.thread-text', { hasText: 'First comment on this line' })).toBeVisible();
+  await expect(greeting.locator('.thread-text', { hasText: 'Second comment on the same line' })).toBeVisible();
+});
+
 test('commenting on a context line anchors to the correct line on both sides', async ({ page }) => {
   await page.goto(launch.url);
 
