@@ -67,23 +67,49 @@ export function buildApp(onActivity?: () => void): express.Express {
       }));
 
       const ghIds = new Set(ghThreads.map((t) => t.githubThreadId));
+      const ghAnchors = new Map<string, Thread>();
+      for (const t of ghThreads) {
+        const key = `${t.anchor.path}:${t.anchor.line}:${t.anchor.side}`;
+        if (!ghAnchors.has(key)) ghAnchors.set(key, t);
+      }
+
+      // Remove stale threads: those with a githubThreadId no longer on GitHub,
+      // or synced threads whose anchor has no match on GitHub.
       const staleIds = new Set(
-        session.threads.filter((t) => t.githubThreadId && !ghIds.has(t.githubThreadId)).map((t) => t.id),
+        session.threads.filter((t) => {
+          if (t.githubThreadId && !ghIds.has(t.githubThreadId)) return true;
+          if (!t.githubThreadId && t.status === 'synced') {
+            const key = `${t.anchor.path}:${t.anchor.line}:${t.anchor.side}`;
+            if (!ghAnchors.has(key)) return true;
+          }
+          return false;
+        }).map((t) => t.id),
       );
       if (staleIds.size > 0) {
         session.threads = session.threads.filter((t) => !staleIds.has(t.id));
       }
 
-      const existingGhIds = new Set(
-        session.threads.filter((t) => t.githubThreadId).map((t) => t.githubThreadId),
-      );
-      const newThreads = ghThreads.filter((t) => !existingGhIds.has(t.githubThreadId));
-      for (const t of newThreads) {
+      // Assign githubThreadId to existing synced threads that match a GitHub thread by anchor,
+      // and remove the matching ghThread entry so we don't create a duplicate.
+      for (const st of session.threads) {
+        if (st.githubThreadId || st.status !== 'synced') continue;
+        const key = `${st.anchor.path}:${st.anchor.line}:${st.anchor.side}`;
+        const match = ghAnchors.get(key);
+        if (match) {
+          st.githubThreadId = match.githubThreadId;
+          ghAnchors.delete(key);
+        }
+      }
+
+      // Add remaining unmatched GitHub threads as new entries.
+      let added = 0;
+      for (const t of ghAnchors.values()) {
         addThread(session, t);
+        added++;
       }
       await writeSession(session);
 
-      res.json({ added: newThreads.length, threads: session.threads });
+      res.json({ added, threads: session.threads });
     } catch (err) {
       res.status(502).json({
         error: err instanceof Error ? err.message : 'Failed to refresh review threads',
