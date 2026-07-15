@@ -91,7 +91,8 @@ npm run test:watch    # Vitest in watch mode
   (`revy <pr> --no-open`), which spawns the detached loopback server, then drives a real Chromium
   browser against the rendered review - asserting the header, file tree, diff bodies,
   auto-collapse, collapse/expand, tree navigation, server reuse on relaunch, error states, gutter
-  line selection, and adding a draft review comment (composer → thread widget).
+  line selection, adding a draft review comment (composer → thread widget), and opening a new
+  thread on a line that already has one (both threads render, composer alongside).
 - **Hermetic, no network:** a fake `gh` (`tests/helpers/`) backed by fixtures in `tests/fixtures/pr/`
   is put on `PATH`, and each run uses an isolated `REVY_STATE_DIR`, so tests never hit GitHub. The
   fake also answers the `gh api graphql` review-threads query and the `gh api` review-submission

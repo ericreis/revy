@@ -72,9 +72,17 @@ export default function FileView({
   const widgets = useMemo(() => {
     const w: Record<string, React.ReactNode> = {};
 
-    // Composer widget: show at the change key where composer is open
-    if (composing && !collapsed) {
-      w[composing] = (
+    // Thread widgets: group all threads by their change key
+    if (!collapsed) {
+      const threadsByCk: Record<string, typeof threads> = {};
+      for (const t of threads) {
+        if (t.anchor.path !== file.path) continue;
+        const ck = t.anchor.changeKey ?? findChangeKey(t.anchor, file.file.hunks);
+        if (!ck) continue;
+        (threadsByCk[ck] ??= []).push(t);
+      }
+
+      const composerWidget = composing ? (
         <ThreadWidget
           composing={true}
           composerText={composerText}
@@ -86,27 +94,30 @@ export default function FileView({
           }}
           onCancel={onCloseComposer}
         />
-      );
-    }
+      ) : null;
 
-    // Thread widgets: one per thread anchored to this file
-    if (!collapsed) {
-      for (const t of threads) {
-        if (t.anchor.path !== file.path) continue;
-        const ck = t.anchor.changeKey ?? findChangeKey(t.anchor, file.file.hunks);
-        if (!ck) continue;
-        if (!w[ck]) {
-          w[ck] = (
-            <ThreadWidget
-              thread={t}
-              composing={false}
-              composerText=""
-              onComposerChange={() => {}}
-              onSubmit={() => {}}
-              onCancel={() => {}}
-            />
-          );
-        }
+      for (const [ck, ts] of Object.entries(threadsByCk)) {
+        w[ck] = (
+          <>
+            {ts.map((t) => (
+              <ThreadWidget
+                key={t.id}
+                thread={t}
+                composing={false}
+                composerText=""
+                onComposerChange={() => {}}
+                onSubmit={() => {}}
+                onCancel={() => {}}
+              />
+            ))}
+            {composing === ck && composerWidget}
+          </>
+        );
+      }
+
+      // Standalone composer for change keys with no existing threads
+      if (composing && !threadsByCk[composing]) {
+        w[composing] = composerWidget!;
       }
     }
 

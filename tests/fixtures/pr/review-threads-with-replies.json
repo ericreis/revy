@@ -1,0 +1,6 @@
+[
+  { "id": "RT_1", "isResolved": false, "isOutdated": false, "path": "src/greeting.ts", "line": 5, "originalLine": 5, "startLine": null, "originalStartLine": null, "comments": { "nodes": [
+    { "author": { "login": "octocat" }, "body": "Original comment", "createdAt": "2024-01-01T00:00:00Z", "line": 5, "diffSide": "RIGHT" },
+    { "author": { "login": "octocat" }, "body": "Reply from GitHub", "createdAt": "2024-01-01T00:00:01Z", "line": 5, "diffSide": "RIGHT" }
+  ] } }
+]

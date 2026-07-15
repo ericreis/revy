@@ -66,16 +66,85 @@ export function buildApp(onActivity?: () => void): express.Express {
         })),
       }));
 
-      const existingGhIds = new Set(
-        session.threads.filter((t) => t.githubThreadId).map((t) => t.githubThreadId),
-      );
-      const newThreads = ghThreads.filter((t) => !existingGhIds.has(t.githubThreadId));
-      for (const t of newThreads) {
-        addThread(session, t);
+      const ghIds = new Set(ghThreads.map((t) => t.githubThreadId));
+
+      // Build a multimap from anchor key to all matching ghThreads.
+      const ghByAnchor = new Map<string, Thread[]>();
+      for (const t of ghThreads) {
+        const key = `${t.anchor.path}:${t.anchor.line}:${t.anchor.side}`;
+        const list = ghByAnchor.get(key);
+        if (list) list.push(t);
+        else ghByAnchor.set(key, [t]);
+      }
+
+      // 1. Strip all gh_0X copies left by prior refreshes. They'll be
+      //    re-created in step 5 from the fresh ghThreads if needed.
+      session.threads = session.threads.filter((t) => !t.id.startsWith('gh_'));
+
+      // 2. Deduplicate session threads by githubThreadId.
+      {
+        const seen = new Set<string>();
+        const deduped: typeof session.threads = [];
+        for (const t of session.threads) {
+          if (t.githubThreadId && seen.has(t.githubThreadId)) continue;
+          if (t.githubThreadId) seen.add(t.githubThreadId);
+          deduped.push(t);
+        }
+        session.threads = deduped;
+      }
+
+      // 3. Remove stale threads: githubThreadId no longer on GitHub,
+      //    or synced threads whose anchor has no match on GitHub.
+      {
+        const staleIds = new Set(
+          session.threads.filter((t) => {
+            if (t.githubThreadId && !ghIds.has(t.githubThreadId)) return true;
+            if (!t.githubThreadId && t.status === 'synced') {
+              const key = `${t.anchor.path}:${t.anchor.line}:${t.anchor.side}`;
+              if (!ghByAnchor.has(key)) return true;
+            }
+            return false;
+          }).map((t) => t.id),
+        );
+        if (staleIds.size > 0) {
+          session.threads = session.threads.filter((t) => !staleIds.has(t.id));
+        }
+      }
+
+      // 4. Assign githubThreadId to existing synced threads without one.
+      for (const st of session.threads) {
+        if (st.githubThreadId || st.status !== 'synced') continue;
+        const key = `${st.anchor.path}:${st.anchor.line}:${st.anchor.side}`;
+        const list = ghByAnchor.get(key);
+        if (list && list.length > 0) {
+          const match = list.shift()!;
+          st.githubThreadId = match.githubThreadId;
+          st.messages = match.messages;
+          st.status = match.status;
+        }
+      }
+
+      // 5. Add remaining unmatched GitHub threads as new entries.
+      //    If a ghThread's githubThreadId already exists in the session,
+      //    update the existing entry (messages, status) instead of adding
+      //    a duplicate.
+      const localById = new Map(session.threads.filter((t) => t.githubThreadId).map((t) => [t.githubThreadId, t]));
+      let added = 0;
+      for (const [, list] of ghByAnchor) {
+        for (const t of list) {
+          const existing = t.githubThreadId ? localById.get(t.githubThreadId) : undefined;
+          if (existing) {
+            existing.messages = t.messages;
+            existing.status = t.status;
+          } else {
+            addThread(session, t);
+            added++;
+          }
+        }
       }
       await writeSession(session);
 
-      res.json({ added: newThreads.length, threads: session.threads });
+      res.json({ added, threads: session.threads });
     } catch (err) {
       res.status(502).json({
         error: err instanceof Error ? err.message : 'Failed to refresh review threads',

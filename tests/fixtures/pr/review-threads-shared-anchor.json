@@ -1,0 +1,46 @@
+[
+  {
+    "id": "RT_A",
+    "isResolved": false,
+    "isOutdated": false,
+    "diffSide": "RIGHT",
+    "path": "src/greeting.ts",
+    "line": 3,
+    "originalLine": 3,
+    "startLine": null,
+    "originalStartLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": { "login": "octocat" },
+          "body": "First thread on this line",
+          "createdAt": "2024-01-01T00:00:00Z",
+          "line": 3,
+          "diffSide": "RIGHT"
+        }
+      ]
+    }
+  },
+  {
+    "id": "RT_B",
+    "isResolved": false,
+    "isOutdated": false,
+    "diffSide": "RIGHT",
+    "path": "src/greeting.ts",
+    "line": 3,
+    "originalLine": 3,
+    "startLine": null,
+    "originalStartLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": { "login": "hubot" },
+          "body": "Second thread on the same line",
+          "createdAt": "2024-01-02T00:00:00Z",
+          "line": 3,
+          "diffSide": "RIGHT"
+        }
+      ]
+    }
+  }
+]

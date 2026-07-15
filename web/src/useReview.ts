@@ -111,9 +111,7 @@ export function useReview(session: Session): ReviewState {
       const res = await fetch(`/api/session/${session.key}/refresh`, { method: 'POST' });
       if (res.ok) {
         const data = (await res.json()) as { added: number; threads: Thread[] };
-        if (data.added > 0) {
-          setThreads(data.threads);
-        }
+        setThreads(data.threads);
       }
     } catch {
       // silently retry on next tick
@@ -206,7 +204,11 @@ export function useReview(session: Session): ReviewState {
       });
       if (res.ok) {
         const saved = (await res.json()) as Thread;
-        setThreads((prev) => prev.map((t) => (t.id === newThread.id ? saved : t)));
+        setThreads((prev) => {
+          const next = prev.filter((t) => t.id !== newThread.id && t.id !== saved.id);
+          next.push(saved);
+          return next;
+        });
       }
     } catch {
       // Keep local draft even if API call fails

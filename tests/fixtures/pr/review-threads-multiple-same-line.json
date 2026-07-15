@@ -1,0 +1,4 @@
+[
+  { "id": "RT_1", "isResolved": false, "isOutdated": false, "path": "src/greeting.ts", "line": 5, "originalLine": 5, "startLine": null, "originalStartLine": null, "comments": { "nodes": [{ "author": { "login": "octocat" }, "body": "First thread comment", "createdAt": "2024-01-01T00:00:00Z", "line": 5, "diffSide": "RIGHT" }] } },
+  { "id": "RT_2", "isResolved": false, "isOutdated": false, "path": "src/greeting.ts", "line": 5, "originalLine": 5, "startLine": null, "originalStartLine": null, "comments": { "nodes": [{ "author": { "login": "octocat" }, "body": "Second thread on same line", "createdAt": "2024-01-01T00:00:01Z", "line": 5, "diffSide": "RIGHT" }] } }
+]
